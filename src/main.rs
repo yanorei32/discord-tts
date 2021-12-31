@@ -61,12 +61,6 @@ impl EventHandler for Handler {
 
     async fn message(&self, ctx: Context, mut msg: Message) {
         if msg.author.bot {
-            if msg.author.id == ctx.cache.current_user_id().await {
-                msg.suppress_embeds(&ctx.http)
-                    .await
-                    .expect("Failed to suppress embeds");
-            }
-
             return;
         }
 
@@ -315,20 +309,15 @@ async fn join(ctx: &Context, msg: &Message) -> CommandResult {
                     &ctx.http,
                     &format!(
                         r#"
-Joined {}
+**Joined** {}
 
-Powered by
-VOICEVOX:四国めたん|ずんだもん
-利用規約 https://zunko.jp/con_ongen_kiyaku.html
-
-VOICEVOX:春日部つむぎ
-利用規約 https://tsukushinyoki10.wixsite.com/ktsumugiofficial/%E5%88%A9%E7%94%A8%E8%A6%8F%E7%B4%84
-
-VOICEVOX:雨晴はう
-利用規約 https://amehau.com/?page_id=225
-
-VOICEVOX:波音リツ
-利用規約 http://canon-voice.com/kiyaku.html
+VOICEVOX
+```
+VOICEVOX:四国めたん|VOICEVOX:ずんだもん: https://zunko.jp/con_ongen_kiyaku.html
+VOICEVOX:春日部つむぎ: https://tsukushinyoki10.wixsite.com/ktsumugiofficial/%E5%88%A9%E7%94%A8%E8%A6%8F%E7%B4%84
+VOICEVOX:雨晴はう: https://amehau.com/?page_id=225
+VOICEVOX:波音リツ: http://canon-voice.com/kiyaku.html
+```
                         "#,
                         connect_to.mention()
                     ),
