@@ -59,7 +59,7 @@ impl EventHandler for Handler {
         println!("{} is connected!", ready.user.name);
     }
 
-    async fn message(&self, ctx: Context, mut msg: Message) {
+    async fn message(&self, ctx: Context, msg: Message) {
         if msg.author.bot {
             return;
         }
