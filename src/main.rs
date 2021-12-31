@@ -1,12 +1,11 @@
 use std::collections::HashMap;
-use std::fs;
-use std::fs::File;
-use std::io;
+use std::fs::{self, File};
+use std::io::{self, BufReader, Write};
 use std::sync::{Arc, Mutex};
 
 use once_cell::sync::OnceCell;
 use reqwest::header::CONTENT_TYPE;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serenity::{
     async_trait,
     client::{Client, Context, EventHandler},
@@ -36,13 +35,25 @@ extern crate lazy_static;
 lazy_static! {
     static ref CURRENT_TEXT_CHANNEL: Mutex<HashMap<GuildId, ChannelId>> =
         Mutex::new(HashMap::new());
-    static ref VOICE_OVERRIDE: Mutex<HashMap<UserId, String>> = Mutex::new(HashMap::new());
+    static ref STATE: Mutex<State> = Mutex::new(State {
+        user_settings: HashMap::new()
+    });
 }
 
 #[derive(Deserialize, Debug)]
 struct Config {
     voicevox_host: String,
     discord_token: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Copy, Clone)]
+struct UserSettings {
+    speaker: Option<u8>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct State {
+    user_settings: HashMap<UserId, UserSettings>,
 }
 
 static CONFIG: OnceCell<Config> = OnceCell::new();
@@ -106,11 +117,15 @@ impl EventHandler for Handler {
         }
 
         let speaker = {
-            let map = VOICE_OVERRIDE.lock().unwrap();
-            match map.get(&msg.author.id) {
-                Some(voice) => voice.clone(),
-                None => "0".to_string(),
+            let s = STATE.lock().unwrap();
+            match s.user_settings.get(&msg.author.id) {
+                Some(setting) => match setting.speaker {
+                    Some(speaker) => speaker,
+                    _ => 0,
+                },
+                None => 0,
             }
+            .to_string()
         };
 
         let c = CONFIG.get().unwrap();
@@ -172,13 +187,25 @@ impl EventHandler for Handler {
 #[command]
 #[only_in(guilds)]
 async fn set(_ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
-    let id = args.single::<i32>().expect("Failed");
+    let id = args.single::<u8>().expect("Failed");
     if !(0..=10).contains(&id) {
         return Ok(());
     }
 
-    let mut map = VOICE_OVERRIDE.lock().unwrap();
-    map.insert(msg.author.id, id.to_string());
+    {
+        let mut s = STATE.lock().unwrap();
+
+        let mut settings: UserSettings = match s.user_settings.get(&msg.author.id) {
+            Some(settings) => settings.clone(),
+            None => UserSettings { speaker: None },
+        };
+
+        settings.speaker = Some(id);
+        s.user_settings.insert(msg.author.id, settings);
+    }
+
+    save_state();
+
     Ok(())
 }
 
@@ -342,6 +369,8 @@ VOICEVOX:波音リツ: http://canon-voice.com/kiyaku.html
 async fn main() {
     tracing_subscriber::fmt::init();
 
+    load_state();
+
     CONFIG
         .set(envy::from_env::<Config>().expect("Failed to get environment"))
         .unwrap();
@@ -375,5 +404,30 @@ async fn main() {
 fn check_msg(result: SerenityResult<Message>) {
     if let Err(why) = result {
         println!("Error sending message: {:?}", why);
+    }
+}
+
+fn save_state() {
+    let mut f = File::create("state.json").expect("Unable to open file.");
+
+    let s = STATE.lock().unwrap();
+    f.write_all(
+        serde_json::to_string(&s.user_settings)
+            .expect("Failed to serialize")
+            .as_bytes(),
+    )
+    .expect("Unable to write data");
+}
+
+fn load_state() {
+    match File::open("state.json") {
+        Ok(f) => {
+            let reader = BufReader::new(f);
+            let mut s = STATE.lock().unwrap();
+            s.user_settings = serde_json::from_reader(reader).expect("JSON was not well-formatted");
+        }
+        Err(_) => {
+            println!("Failed to read state.json");
+        }
     }
 }

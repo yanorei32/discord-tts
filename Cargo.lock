@@ -271,6 +271,7 @@ dependencies = [
  "once_cell",
  "reqwest",
  "serde",
+ "serde_json",
  "serenity",
  "songbird",
  "tokio",
