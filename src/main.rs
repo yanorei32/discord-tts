@@ -44,6 +44,7 @@ lazy_static! {
 struct Config {
     voicevox_host: String,
     discord_token: String,
+    state_path: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Copy, Clone)]
@@ -408,7 +409,8 @@ fn check_msg(result: SerenityResult<Message>) {
 }
 
 fn save_state() {
-    let mut f = File::create("state.json").expect("Unable to open file.");
+    let c = CONFIG.get().unwrap();
+    let mut f = File::create(&c.state_path).expect("Unable to open file.");
 
     let s = STATE.lock().unwrap();
     f.write_all(
@@ -420,7 +422,8 @@ fn save_state() {
 }
 
 fn load_state() {
-    match File::open("state.json") {
+    let c = CONFIG.get().unwrap();
+    match File::open(&c.state_path) {
         Ok(f) => {
             let reader = BufReader::new(f);
             let mut s = STATE.lock().unwrap();
