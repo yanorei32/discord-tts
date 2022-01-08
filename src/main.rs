@@ -370,11 +370,11 @@ VOICEVOX:波音リツ: http://canon-voice.com/kiyaku.html
 async fn main() {
     tracing_subscriber::fmt::init();
 
-    load_state();
-
     CONFIG
         .set(envy::from_env::<Config>().expect("Failed to get environment"))
         .unwrap();
+
+    load_state();
 
     let framework = StandardFramework::new()
         .configure(|c| c.prefix("~"))

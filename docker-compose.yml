@@ -1,0 +1,72 @@
+version: '3.9'
+services:
+  voicevox:
+    image: hiroshiba/voicevox_engine:nvidia-0.9.5
+    hostname: voicevox
+    container_name: discordtts__voicevox
+    restart: always
+    expose:
+      - 50021
+
+    networks:
+      - voicevox_discordtts
+
+    deploy:
+      resources:
+        limits:
+          memory: 8g
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
+
+    logging:
+      driver: json-file
+      options:
+        max-file: '1'
+        max-size: 1m
+
+  discordtts:
+    build: .
+    image: discordtts
+    hostname: discordtts
+    container_name: discordtts__discordtts
+    depends_on:
+      - voicevox
+
+    restart: always
+
+    environment:
+      VOICEVOX_HOST: http://voicevox:50021
+      STATE_PATH: /state.json
+
+    env_file:
+      - discord-tts.env
+
+    volumes:
+      - type: bind
+        source: ./state.json
+        target: /state.json
+
+    networks:
+      - voicevox_discordtts
+      - discordtts_internet
+
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+
+    logging:
+      driver: json-file
+      options:
+        max-file: '1'
+        max-size: 1m
+
+networks:
+  voicevox_discordtts:
+    name: discordtts__voicevox_discordtts
+    internal: true
+
+  discordtts_internet:
+    name: discordtts__discordtts_internet
