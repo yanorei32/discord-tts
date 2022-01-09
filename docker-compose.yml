@@ -1,7 +1,7 @@
 version: '3.9'
 services:
   voicevox:
-    image: hiroshiba/voicevox_engine:nvidia-0.9.5
+    image: hiroshiba/voicevox_engine:nvidia-latest@sha256:d1de4f7c3ed1ac49b5df63b9e5aece6742348078133b039f7551f22f30aa1d89
     hostname: voicevox
     container_name: discordtts__voicevox
     restart: always
@@ -39,6 +39,7 @@ services:
     environment:
       VOICEVOX_HOST: http://voicevox:50021
       STATE_PATH: /state.json
+      TMP_PATH: /tmp/
 
     env_file:
       - discord-tts.env

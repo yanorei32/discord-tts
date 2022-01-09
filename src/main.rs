@@ -1,7 +1,10 @@
 use std::collections::HashMap;
 use std::fs::{self, File};
 use std::io::{self, BufReader, Write};
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
+
+use std::{thread, time};
 
 use once_cell::sync::OnceCell;
 use reqwest::header::CONTENT_TYPE;
@@ -45,6 +48,7 @@ struct Config {
     voicevox_host: String,
     discord_token: String,
     state_path: String,
+    tmp_path: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Copy, Clone)]
@@ -153,15 +157,29 @@ impl EventHandler for Handler {
             .expect("Failed to create audio query");
 
         let uuid = Uuid::new_v4().to_string();
+        let path = Path::new(&c.tmp_path).join(&uuid);
 
-        let mut output = File::create(&uuid).expect("Failed to create file");
+        let mut output = File::create(&path).expect("Failed to create file");
         let audio = audio.bytes().await.expect("Failed to read resp");
         let mut response_cursor = std::io::Cursor::new(audio);
         io::copy(&mut response_cursor, &mut output).expect("Failed to write file");
 
+        println!("Source: {:?}", &path);
+
+        // match output.flush() {
+        //     Err(_) => {
+        //         println!("Failed to flush file: {:?}", &path);
+        //         check_msg(msg.reply(ctx, "Error flush file").await);
+        //         return;
+        //     }
+        //     Ok(_) => {}
+        // }
+
+        thread::sleep(time::Duration::from_millis(200));
+
         let mut handler = handler.lock().await;
 
-        let source = match ffmpeg(&uuid).await {
+        let source = match ffmpeg(&path).await {
             Ok(source) => source,
             Err(why) => {
                 println!("Err starting source: {:?}", why);
@@ -176,7 +194,7 @@ impl EventHandler for Handler {
             .add_event(
                 Event::Track(TrackEvent::End),
                 ReadEndNotifier {
-                    temporary_filename: uuid,
+                    temporary_filename: path,
                 },
             )
             .expect("Failed to create queue");
@@ -230,7 +248,7 @@ async fn skip(ctx: &Context, msg: &Message, _args: Args) -> CommandResult {
 }
 
 struct ReadEndNotifier {
-    temporary_filename: String,
+    temporary_filename: PathBuf,
 }
 
 #[async_trait]
