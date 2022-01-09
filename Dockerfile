@@ -1,8 +1,14 @@
 FROM rust:1.57.0 as build-env
 
-COPY . /root/build
+WORKDIR /usr/src
 
-RUN cd /root/build && cargo build --release
+RUN cargo new discord-tts
+COPY Cargo.toml Cargo.lock /usr/src/discord-tts
+WORKDIR /usr/src/discord-tts
+RUN cargo build --release
+
+COPY src/* /usr/src/discord-tts/src/
+RUN cargo build --release
 
 FROM debian:bullseye-20211220
 MAINTAINER yanorei32
@@ -14,8 +20,9 @@ RUN set -ex; \
 	rm -rf /var/lib/apt/lists/*;
 
 COPY --from=build-env \
-	/root/build/target/release/discord-tts \
+	/usr/src/discord-tts/target/release/discord-tts \
 	/usr/bin/discord-tts
 
+WORKDIR "/"
 CMD ["/usr/bin/discord-tts"]
 
