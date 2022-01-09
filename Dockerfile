@@ -16,7 +16,7 @@ MAINTAINER yanorei32
 RUN set -ex; \
 	apt-get update -qq; \
 	apt-get install -qq -y --no-install-recommends \
-		libopus0; \
+		libopus0 ffmpeg; \
 	rm -rf /var/lib/apt/lists/*;
 
 COPY --from=build-env \
