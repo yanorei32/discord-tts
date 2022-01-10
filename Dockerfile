@@ -3,12 +3,12 @@ FROM rust:1.57.0 as build-env
 WORKDIR /usr/src
 
 RUN cargo new discord-tts
-COPY Cargo.toml Cargo.lock /usr/src/discord-tts
+COPY Cargo.toml Cargo.lock /usr/src/discord-tts/
 WORKDIR /usr/src/discord-tts
 RUN cargo build --release
 
 COPY src/* /usr/src/discord-tts/src/
-RUN cargo build --release
+RUN touch src/* && cargo build --release
 
 FROM debian:bullseye-20211220
 MAINTAINER yanorei32
