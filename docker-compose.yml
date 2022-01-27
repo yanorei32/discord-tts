@@ -40,9 +40,7 @@ services:
       VOICEVOX_HOST: http://voicevox:50021
       STATE_PATH: /state.json
       TMP_PATH: /tmp/
-
-    env_file:
-      - discord-tts.env
+      DISCORD_TOKEN: ${DISCORD_TOKEN}
 
     volumes:
       - type: bind
