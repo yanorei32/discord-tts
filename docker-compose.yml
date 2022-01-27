@@ -44,7 +44,7 @@ services:
 
     volumes:
       - type: volume
-        source: discordtts__data
+        source: data
         target: /var/discordtts/
 
     networks:
