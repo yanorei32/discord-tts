@@ -17,12 +17,15 @@ RUN set -ex; \
 	apt-get update -qq; \
 	apt-get install -qq -y --no-install-recommends \
 		libopus0 ffmpeg; \
-	rm -rf /var/lib/apt/lists/*;
+	rm -rf /var/lib/apt/lists/*; \
+	mkdir /var/discordtts; \
+	echo '{}' > /var/discordtts/state.json;
 
 COPY --from=build-env \
 	/usr/src/discord-tts/target/release/discord-tts \
 	/usr/bin/discord-tts
 
+VOLUME /var/discordtts/
 WORKDIR "/"
 CMD ["/usr/bin/discord-tts"]
 
