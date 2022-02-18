@@ -1,7 +1,7 @@
 version: '3.9'
 services:
   voicevox:
-    image: hiroshiba/voicevox_engine:nvidia-latest@sha256:693092dfe3d58bd495518249d6e652f8cdf848450b8b33a466f62f96acda700c
+    image: hiroshiba/voicevox_engine:nvidia-latest@sha256:1e795e6cd31c80087af1e040f67373899798cf081d29d07d7c582998fb43a0ff
     hostname: voicevox
     container_name: discordtts__voicevox
     restart: always
