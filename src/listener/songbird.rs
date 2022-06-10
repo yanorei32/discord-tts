@@ -13,7 +13,7 @@ pub struct ReadEndNotifier {
 impl EventHandler for ReadEndNotifier {
     async fn act(&self, ctx: &EventContext<'_>) -> Option<Event> {
         if let EventContext::Track(_) = ctx {
-            std::fs::remove_file(&self.temporary_filename).expect("Failed to remove temporary file")
+            std::fs::remove_file(&self.temporary_filename).expect("Failed to remove temporary file");
         }
         None
     }
