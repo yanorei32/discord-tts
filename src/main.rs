@@ -9,7 +9,7 @@ mod persistence;
 use std::collections::HashMap;
 use std::sync::Mutex;
 
-use once_cell::sync::OnceCell;
+use once_cell::sync::{Lazy, OnceCell};
 use serenity::{
     client::Client,
     framework::StandardFramework,
@@ -29,14 +29,7 @@ use crate::{
 use crate::listener::serenity::Handler;
 use crate::persistence::{OnMemorySetting, Persistence};
 
-#[macro_use]
-extern crate lazy_static;
-
-lazy_static! {
-    static ref CURRENT_TEXT_CHANNEL: Mutex<HashMap<GuildId, ChannelId>> =
-        Mutex::new(HashMap::new());
-}
-
+static CURRENT_TEXT_CHANNEL: Lazy<Mutex<HashMap<GuildId, ChannelId>>> = Lazy::new(|| Mutex::new(HashMap::new()));
 static CONFIG: OnceCell<Config> = OnceCell::new();
 static ON_MEMORY_SETTING: OnceCell<Mutex<OnMemorySetting>> = OnceCell::new();
 
