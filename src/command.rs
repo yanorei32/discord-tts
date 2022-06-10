@@ -72,6 +72,8 @@ async fn leave(ctx: &Context, msg: &Message) -> CommandResult {
         }
 
         msg.reply(ctx, "Left voice channel").await.log_error();
+
+        // TODO: remove entry from CURRENT_TEXT_CHANNEL ?
     } else {
         msg.reply(ctx, "Not in a voice channel").await.log_error();
     }
