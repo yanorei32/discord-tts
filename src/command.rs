@@ -44,7 +44,7 @@ async fn skip(ctx: &Context, msg: &Message, _args: Args) -> CommandResult {
     if let Some(handler_lock) = manager.get(guild.id) {
         let handler = handler_lock.lock().await;
         let queue = handler.queue();
-        let _ = queue.skip();
+        queue.skip().map_or_else(|_| /* 握りつぶし */ (), |_| ());
     }
 
     Ok(())
@@ -102,9 +102,9 @@ async fn join(ctx: &Context, msg: &Message) -> CommandResult {
         .expect("Songbird Voice client placed in at initialisation.")
         .clone();
 
-    let (handler_lock, success) = manager.join(guild.id, connect_to).await;
+    let (handler_lock, join_result) = manager.join(guild.id, connect_to).await;
 
-    if let Ok(_channel) = success {
+    if join_result.is_ok() {
         let mut handler = handler_lock.lock().await;
         handler.add_global_event(
             CoreEvent::DriverDisconnect.into(),
