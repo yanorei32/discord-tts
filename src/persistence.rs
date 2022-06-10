@@ -1,15 +1,18 @@
+use std::error::Error;
 use std::fs::File;
 use std::io::{BufReader, Write};
-use crate::{CONFIG, STATE};
+use crate::{Config, State};
 
-struct Persistence;
+#[derive(Debug)]
+pub struct OnMemorySetting {
+    pub state: State,
+}
 
-impl Persistence {
-    fn save() {
-        let c = CONFIG.get().unwrap();
+impl OnMemorySetting {
+    pub fn save(&self, c: &Config) {
         let mut f = File::create(&c.state_path).expect("Unable to open file.");
 
-        let s = STATE.lock().unwrap();
+        let s = &self.state;
         f.write_all(
             serde_json::to_string(&s.user_settings)
                 .expect("Failed to serialize")
@@ -17,18 +20,27 @@ impl Persistence {
         )
             .expect("Unable to write data");
     }
+}
 
-    fn load() {
-        let c = CONFIG.get().unwrap();
-        match File::open(&c.state_path) {
-            Ok(f) => {
-                let reader = BufReader::new(f);
-                let mut s = STATE.lock().unwrap();
-                s.user_settings = serde_json::from_reader(reader).expect("JSON was not well-formatted");
-            }
-            Err(_) => {
+#[derive(Debug)]
+pub struct Persistence;
+
+impl Persistence {
+    pub fn load(config: &Config) -> Result<OnMemorySetting, Box<dyn Error>> {
+        let f = match File::open(&config.state_path) {
+            Ok(f) => f,
+            Err(e) => {
                 println!("Failed to read state.json");
+                return Err(Box::new(e))
             }
-        }
+        };
+
+        let reader = BufReader::new(f);
+        let res = serde_json::from_reader(reader).expect("JSON was not well-formatted");
+        Ok(OnMemorySetting {
+            state: State {
+                user_settings: res
+            }
+        })
     }
 }

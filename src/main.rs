@@ -7,8 +7,6 @@ mod listener;
 mod persistence;
 
 use std::collections::HashMap;
-use std::fs::File;
-use std::io::{BufReader, Write};
 use std::sync::Mutex;
 
 use once_cell::sync::OnceCell;
@@ -29,6 +27,7 @@ use crate::{
     }
 };
 use crate::listener::serenity::Handler;
+use crate::persistence::{OnMemorySetting, Persistence};
 
 #[macro_use]
 extern crate lazy_static;
@@ -36,29 +35,31 @@ extern crate lazy_static;
 lazy_static! {
     static ref CURRENT_TEXT_CHANNEL: Mutex<HashMap<GuildId, ChannelId>> =
         Mutex::new(HashMap::new());
-    static ref STATE: Mutex<State> = Mutex::new(State {
-        user_settings: HashMap::new()
-    });
 }
 
 static CONFIG: OnceCell<Config> = OnceCell::new();
+static ON_MEMORY_SETTING: OnceCell<Mutex<OnMemorySetting>> = OnceCell::new();
 
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::init();
 
+    let cfg = envy::from_env::<Config>().expect("Failed to get environment");
     CONFIG
-        .set(envy::from_env::<Config>().expect("Failed to get environment"))
+        .set(cfg.clone())
         .unwrap();
 
-    load_state();
+    ON_MEMORY_SETTING.set(
+        Mutex::new(
+            Persistence::load(&cfg).expect("failed to load state from persistence")
+        )
+    ).unwrap();
 
     let framework = StandardFramework::new()
         .configure(|c| c.prefix("~"))
         .group(&GENERAL_GROUP);
 
-    let c = CONFIG.get().unwrap();
-    let mut client = Client::builder(&c.discord_token)
+    let mut client = Client::builder(&cfg.discord_token)
         .event_handler(Handler)
         .framework(framework)
         .register_songbird()

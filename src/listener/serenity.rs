@@ -8,7 +8,7 @@ use serenity::model::gateway::Ready;
 use songbird::{create_player, ffmpeg, TrackEvent};
 use songbird::Event;
 use uuid::Uuid;
-use crate::{check_msg, listener::songbird::ReadEndNotifier, CONFIG, CURRENT_TEXT_CHANNEL, STATE};
+use crate::{check_msg, listener::songbird::ReadEndNotifier, CONFIG, CURRENT_TEXT_CHANNEL, ON_MEMORY_SETTING};
 
 pub struct Handler;
 
@@ -65,8 +65,8 @@ impl EventHandler for Handler {
         }
 
         let speaker = {
-            let s = STATE.lock().unwrap();
-            match s.user_settings.get(&msg.author.id) {
+            let s = ON_MEMORY_SETTING.get().unwrap().lock().unwrap();
+            match s.state.user_settings.get(&msg.author.id) {
                 Some(setting) => match setting.speaker {
                     Some(speaker) => speaker,
                     _ => 0,

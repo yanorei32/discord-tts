@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use serenity::model::id::UserId;
 use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Config {
     pub voicevox_host: String,
     pub discord_token: String,

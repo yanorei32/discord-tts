@@ -3,7 +3,7 @@ use serenity::framework::standard::{Args, CommandResult, macros::{command, group
 use serenity::model::channel::Message;
 use serenity::prelude::Mentionable;
 use songbird::CoreEvent;
-use crate::{check_msg, CURRENT_TEXT_CHANNEL, listener::songbird::DriverDisconnectNotifier, save_state, STATE, UserSettings};
+use crate::{check_msg, CONFIG, CURRENT_TEXT_CHANNEL, listener::songbird::DriverDisconnectNotifier, ON_MEMORY_SETTING, UserSettings};
 
 #[group]
 #[commands(join, leave, skip, set)]
@@ -18,7 +18,7 @@ async fn set(_ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     }
 
     {
-        let mut s = STATE.lock().unwrap();
+        let s = &mut ON_MEMORY_SETTING.get().unwrap().lock().unwrap().state;
 
         let mut settings: UserSettings = match s.user_settings.get(&msg.author.id) {
             Some(settings) => *settings,
@@ -29,7 +29,7 @@ async fn set(_ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
         s.user_settings.insert(msg.author.id, settings);
     }
 
-    save_state();
+    ON_MEMORY_SETTING.get().unwrap().lock().unwrap().save(CONFIG.get().unwrap());
 
     Ok(())
 }
