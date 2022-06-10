@@ -43,10 +43,9 @@ impl EventHandler for Handler {
             None => return,
         };
 
-        let manager = songbird::get(&ctx)
+        let manager = &songbird::get(&ctx)
             .await
-            .expect("Songbird Voice client placed in at initialisation.")
-            .clone();
+            .expect("Songbird Voice client placed in at initialisation.");
 
         let handler = match manager.get(guild_id) {
             Some(handler) => handler,
