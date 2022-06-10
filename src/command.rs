@@ -3,7 +3,7 @@ use serenity::framework::standard::{Args, CommandResult, macros::{command, group
 use serenity::model::channel::Message;
 use serenity::prelude::Mentionable;
 use songbird::CoreEvent;
-use crate::{check_msg, CURRENT_TEXT_CHANNEL, DriverDisconnectNotifier, save_state, STATE, UserSettings};
+use crate::{check_msg, CURRENT_TEXT_CHANNEL, listener::songbird::DriverDisconnectNotifier, save_state, STATE, UserSettings};
 
 #[group]
 #[commands(join, leave, skip, set)]
