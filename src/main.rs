@@ -5,6 +5,7 @@ mod command;
 mod model;
 mod listener;
 mod persistence;
+mod log_serenity_error;
 
 use std::collections::HashMap;
 use std::sync::Mutex;
@@ -71,10 +72,4 @@ async fn main() {
         .expect("Failed to wait Ctrl+C");
 
     println!("Received Ctrl+C, shutting down.");
-}
-
-fn check_msg(result: SerenityResult<Message>) {
-    if let Err(why) = result {
-        println!("Error sending message: {:?}", why);
-    }
 }

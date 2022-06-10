@@ -8,7 +8,8 @@ use serenity::model::gateway::Ready;
 use songbird::{create_player, ffmpeg, TrackEvent};
 use songbird::Event;
 use uuid::Uuid;
-use crate::{check_msg, listener::songbird::ReadEndNotifier, CONFIG, CURRENT_TEXT_CHANNEL, ON_MEMORY_SETTING};
+use crate::{listener::songbird::ReadEndNotifier, CONFIG, CURRENT_TEXT_CHANNEL, ON_MEMORY_SETTING};
+use crate::log_serenity_error::LogSerenityError;
 
 pub struct Handler;
 
@@ -24,7 +25,7 @@ impl EventHandler for Handler {
         }
 
         if msg.content == "ping" {
-            check_msg(msg.channel_id.say(&ctx.http, "[discord-tts] pong").await);
+            msg.channel_id.say(&ctx.http, "[discord-tts] pong").await.log_error();
             return;
         }
 
@@ -113,7 +114,7 @@ impl EventHandler for Handler {
             Ok(source) => source,
             Err(why) => {
                 println!("Err starting source: {:?}", why);
-                check_msg(msg.reply(ctx, "Error sourcing ffmpeg").await);
+                msg.reply(ctx, "Error sourcing ffmpeg").await.log_error();
                 return;
             }
         };
