@@ -4,6 +4,7 @@ use serenity::model::channel::Message;
 use serenity::prelude::Mentionable;
 use songbird::CoreEvent;
 use crate::{CONFIG, CURRENT_TEXT_CHANNEL, listener::songbird::DriverDisconnectNotifier, ON_MEMORY_SETTING, UserSettings};
+use crate::log_serenity_error::LogSerenityError;
 
 #[group]
 #[commands(join, leave, skip, set)]
@@ -64,17 +65,15 @@ async fn leave(ctx: &Context, msg: &Message) -> CommandResult {
 
     if has_handler {
         if let Err(e) = manager.remove(guild.id).await {
-            let result = msg.channel_id
+            msg.channel_id
                 .say(&ctx.http, format!("Failed: {:?}", e))
-                .await;use crate::log_serenity_error::LogSerenityError;
-            result.log_error();
+                .await
+                .log_error();
         }
 
-        let result = msg.reply(ctx, "Left voice channel").await;use crate::log_serenity_error::LogSerenityError;
-        result.log_error();
+        msg.reply(ctx, "Left voice channel").await.log_error();
     } else {
-        let result = msg.reply(ctx, "Not in a voice channel").await;use crate::log_serenity_error::LogSerenityError;
-        result.log_error();
+        msg.reply(ctx, "Not in a voice channel").await.log_error();
     }
 
     Ok(())
@@ -93,8 +92,7 @@ async fn join(ctx: &Context, msg: &Message) -> CommandResult {
     let connect_to = match channel_id {
         Some(channel) => channel,
         None => {
-            let result = msg.reply(ctx, "Not in a voice channel").await;use crate::log_serenity_error::LogSerenityError;
-            result.log_error();
+            msg.reply(ctx, "Not in a voice channel").await.log_error();
             return Ok(());
         }
     };
@@ -115,7 +113,7 @@ async fn join(ctx: &Context, msg: &Message) -> CommandResult {
             },
         );
 
-        let result = msg.channel_id
+        msg.channel_id
             .say(
                 &ctx.http,
                 &format!(
@@ -133,16 +131,16 @@ VOICEVOX:波音リツ: http://canon-voice.com/kiyaku.html
                     connect_to.mention()
                 ),
             )
-            .await;use crate::log_serenity_error::LogSerenityError;
-        result.log_error();
+            .await
+            .log_error();
 
         let mut map = CURRENT_TEXT_CHANNEL.lock().unwrap();
         map.insert(guild.id, msg.channel_id);
     } else {
-        let result = msg.channel_id
+        msg.channel_id
             .say(&ctx.http, "Error joining the channel")
-            .await;use crate::log_serenity_error::LogSerenityError;
-        result.log_error();
+            .await
+            .log_error();
     }
 
     Ok(())

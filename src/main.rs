@@ -14,10 +14,7 @@ use once_cell::sync::{Lazy, OnceCell};
 use serenity::{
     client::Client,
     framework::StandardFramework,
-    model::{
-        channel::Message,
-        prelude::{ChannelId, GuildId},
-    },
+    model::prelude::{ChannelId, GuildId},
     Result as SerenityResult,
 };
 use songbird::SerenityInit;
