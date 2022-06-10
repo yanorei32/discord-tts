@@ -267,7 +267,6 @@ name = "discord-tts"
 version = "0.1.0"
 dependencies = [
  "envy",
- "lazy_static",
  "once_cell",
  "reqwest",
  "serde",

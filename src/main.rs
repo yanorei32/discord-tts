@@ -4,7 +4,7 @@ use std::io::{self, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
-use once_cell::sync::OnceCell;
+use once_cell::sync::{Lazy, OnceCell};
 use reqwest::header::CONTENT_TYPE;
 use serde::{Deserialize, Serialize};
 use serenity::{
@@ -30,16 +30,12 @@ use songbird::{
 };
 use uuid::Uuid;
 
-#[macro_use]
-extern crate lazy_static;
-
-lazy_static! {
-    static ref CURRENT_TEXT_CHANNEL: Mutex<HashMap<GuildId, ChannelId>> =
-        Mutex::new(HashMap::new());
-    static ref STATE: Mutex<State> = Mutex::new(State {
+static CURRENT_TEXT_CHANNEL: Lazy<Mutex<HashMap<GuildId, ChannelId>>> = Lazy::new(|| Mutex::new(HashMap::new()));
+static STATE: Lazy<Mutex<State>> = Lazy::new(|| Mutex::new(
+    State {
         user_settings: HashMap::new()
-    });
-}
+    }
+));
 
 #[derive(Deserialize, Debug)]
 struct Config {
