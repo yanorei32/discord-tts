@@ -1,7 +1,7 @@
 #![deny(clippy::all)]
 #![warn(clippy::pedantic, clippy::nursery)]
 
-mod commands;
+mod command;
 mod model;
 
 use std::collections::HashMap;
@@ -29,7 +29,7 @@ use songbird::{
 };
 use uuid::Uuid;
 use crate::{
-    commands::GENERAL_GROUP,
+    command::GENERAL_GROUP,
     model::{
         State, Config, UserSettings
     }
