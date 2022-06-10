@@ -16,12 +16,10 @@ pub struct Handler;
 
 /// invoke POST request.
 /// returns audio source that can be passed to ffmpeg function.
-async fn get_audio(text: impl AsRef<str> + Send + Sync, speaker: u8) -> reqwest::Result<bytes::Bytes> {
-    let c = CONFIG.get().unwrap();
-
+async fn get_audio(text: impl AsRef<str> + Send + Sync, speaker: u8, config: &Config) -> reqwest::Result<bytes::Bytes> {
     let client = reqwest::Client::new();
     let query = client
-        .post(format!("{}/audio_query", c.voicevox_host))
+        .post(format!("{}/audio_query", config.voicevox_host))
         .query(&[("text", text.as_ref())])
         .query(&[("speaker", &speaker)])
         .send()
@@ -34,7 +32,7 @@ async fn get_audio(text: impl AsRef<str> + Send + Sync, speaker: u8) -> reqwest:
 
     let params = [("speaker", &speaker)];
     let audio = client
-        .post(format!("{}/synthesis", c.voicevox_host))
+        .post(format!("{}/synthesis", config.voicevox_host))
         .query(&params)
         .header(CONTENT_TYPE, "application/json")
         .body(query)
@@ -147,6 +145,7 @@ impl EventHandler for Handler {
 
         let audio = get_audio(content, speaker).await.expect("Failed to read resp");
         let config = CONFIG.get().unwrap();
+        let audio = get_audio(content, speaker, config).await.expect("Failed to read resp");
         let path = write_bytes_to_temporary_file(audio, config);
         queue_audio(handler.lock().await, path, msg, ctx).await;
     }
