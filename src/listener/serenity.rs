@@ -65,17 +65,16 @@ impl EventHandler for Handler {
             }
         }
 
-        let speaker = {
-            let s = ON_MEMORY_SETTING.get().unwrap().lock().unwrap();
-            match s.state.user_settings.get(&msg.author.id) {
-                Some(setting) => match setting.speaker {
-                    Some(speaker) => speaker,
-                    _ => 0,
-                },
-                None => 0,
-            }
-                .to_string()
-        };
+        let speaker = ON_MEMORY_SETTING.get()
+            .unwrap()
+            .lock()
+            .unwrap()
+            .state
+            .user_settings
+            .get(&msg.author.id)
+            .and_then(|setting| setting.speaker)
+            .unwrap_or(0)
+            .to_string();
 
         let c = CONFIG.get().unwrap();
 
