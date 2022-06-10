@@ -1,3 +1,6 @@
+#![deny(clippy::all)]
+#![warn(clippy::pedantic, clippy::nursery)]
+
 use std::collections::HashMap;
 use std::fs::{self, File};
 use std::io::{self, BufReader, Write};
