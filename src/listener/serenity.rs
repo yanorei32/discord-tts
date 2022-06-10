@@ -110,25 +110,24 @@ impl EventHandler for Handler {
             None => return,
         };
 
-        let manager = &songbird::get(&ctx)
-            .await
-            .expect("Songbird Voice client placed in at initialisation.");
+        let handler = {
+            let manager = &songbird::get(&ctx)
+                .await
+                .expect("Songbird Voice client placed in at initialisation.");
 
-        let handler = match manager.get(guild_id) {
-            Some(handler) => handler,
-            None => return,
-        };
-
-        {
-            let m = CURRENT_TEXT_CHANNEL.lock().unwrap();
-            match m.get(&guild_id) {
-                Some(channel_id) => {
-                    if channel_id != &msg.channel_id {
-                        return;
-                    }
-                }
+            match manager.get(guild_id) {
+                Some(handler) => handler,
                 None => return,
             }
+        };
+
+        match CURRENT_TEXT_CHANNEL.lock().unwrap().get(&guild_id) {
+            Some(channel_id) => {
+                if channel_id != &msg.channel_id {
+                    return;
+                }
+            }
+            None => return,
         }
 
         let speaker = ON_MEMORY_SETTING.get()
@@ -143,7 +142,6 @@ impl EventHandler for Handler {
 
         let content = msg.content.as_str();
 
-        let audio = get_audio(content, speaker).await.expect("Failed to read resp");
         let config = CONFIG.get().unwrap();
         let audio = get_audio(content, speaker, config).await.expect("Failed to read resp");
         let path = write_bytes_to_temporary_file(audio, config);
