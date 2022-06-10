@@ -2,6 +2,7 @@
 #![warn(clippy::pedantic, clippy::nursery)]
 
 mod commands;
+mod model;
 
 use std::collections::HashMap;
 use std::fs::{self, File};
@@ -11,7 +12,6 @@ use std::sync::{Arc, Mutex};
 
 use once_cell::sync::OnceCell;
 use reqwest::header::CONTENT_TYPE;
-use serde::{Deserialize, Serialize};
 use serenity::{
     async_trait,
     client::{Client, Context, EventHandler},
@@ -19,7 +19,7 @@ use serenity::{
     model::{
         channel::Message,
         gateway::Ready,
-        prelude::{ChannelId, GuildId, UserId},
+        prelude::{ChannelId, GuildId},
     },
     Result as SerenityResult,
 };
@@ -28,7 +28,12 @@ use songbird::{
     EventHandler as VoiceEventHandler, SerenityInit, Songbird, TrackEvent,
 };
 use uuid::Uuid;
-use crate::commands::GENERAL_GROUP;
+use crate::{
+    commands::GENERAL_GROUP,
+    model::{
+        State, Config, UserSettings
+    }
+};
 
 #[macro_use]
 extern crate lazy_static;
@@ -39,24 +44,6 @@ lazy_static! {
     static ref STATE: Mutex<State> = Mutex::new(State {
         user_settings: HashMap::new()
     });
-}
-
-#[derive(Deserialize, Debug)]
-struct Config {
-    voicevox_host: String,
-    discord_token: String,
-    state_path: String,
-    tmp_path: String,
-}
-
-#[derive(Serialize, Deserialize, Debug, Copy, Clone)]
-struct UserSettings {
-    speaker: Option<u8>,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct State {
-    user_settings: HashMap<UserId, UserSettings>,
 }
 
 static CONFIG: OnceCell<Config> = OnceCell::new();
