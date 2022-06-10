@@ -4,6 +4,7 @@
 mod command;
 mod model;
 mod listener;
+mod persistence;
 
 use std::collections::HashMap;
 use std::fs::File;
@@ -81,32 +82,5 @@ async fn main() {
 fn check_msg(result: SerenityResult<Message>) {
     if let Err(why) = result {
         println!("Error sending message: {:?}", why);
-    }
-}
-
-fn save_state() {
-    let c = CONFIG.get().unwrap();
-    let mut f = File::create(&c.state_path).expect("Unable to open file.");
-
-    let s = STATE.lock().unwrap();
-    f.write_all(
-        serde_json::to_string(&s.user_settings)
-            .expect("Failed to serialize")
-            .as_bytes(),
-    )
-    .expect("Unable to write data");
-}
-
-fn load_state() {
-    let c = CONFIG.get().unwrap();
-    match File::open(&c.state_path) {
-        Ok(f) => {
-            let reader = BufReader::new(f);
-            let mut s = STATE.lock().unwrap();
-            s.user_settings = serde_json::from_reader(reader).expect("JSON was not well-formatted");
-        }
-        Err(_) => {
-            println!("Failed to read state.json");
-        }
     }
 }
