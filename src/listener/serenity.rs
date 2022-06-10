@@ -13,6 +13,37 @@ use crate::log_serenity_error::LogSerenityError;
 
 pub struct Handler;
 
+/// invoke POST request.
+/// returns audio source that can be passed to ffmpeg function.
+async fn get_audio(text: impl AsRef<str> + Send + Sync, speaker: u8) -> reqwest::Result<bytes::Bytes> {
+    let c = CONFIG.get().unwrap();
+
+    let client = reqwest::Client::new();
+    let query = client
+        .post(format!("{}/audio_query", c.voicevox_host))
+        .query(&[("text", text.as_ref())])
+        .query(&[("speaker", &speaker)])
+        .send()
+        .await
+        .expect("Failed to create audio query");
+
+    // NOTE: we do not have to deserialize the response
+    // we pass it directly to `POST /synthesis`
+    let query = query.text().await.expect("Failed to get text");
+
+    let params = [("speaker", &speaker)];
+    let audio = client
+        .post(format!("{}/synthesis", c.voicevox_host))
+        .query(&params)
+        .header(CONTENT_TYPE, "application/json")
+        .body(query)
+        .send()
+        .await
+        .expect("Failed to create audio query");
+
+    audio.bytes().await
+}
+
 #[async_trait]
 impl EventHandler for Handler {
     async fn ready(&self, _: Context, ready: Ready) {
@@ -72,37 +103,16 @@ impl EventHandler for Handler {
             .user_settings
             .get(&msg.author.id)
             .and_then(|setting| setting.speaker)
-            .unwrap_or(0)
-            .to_string();
+            .unwrap_or(0);
 
+        let content = msg.content.as_str();
         let c = CONFIG.get().unwrap();
 
-        let params = [("text", msg.content.as_str()), ("speaker", &speaker)];
-        let client = reqwest::Client::new();
-        let query = client
-            .post(format!("{}/audio_query", c.voicevox_host))
-            .query(&params)
-            .send()
-            .await
-            .expect("Failed to create audio query");
-
-        let query = query.text().await.expect("Failed to get text");
-
-        let params = [("speaker", &speaker)];
-        let audio = client
-            .post(format!("{}/synthesis", c.voicevox_host))
-            .query(&params)
-            .header(CONTENT_TYPE, "application/json")
-            .body(query)
-            .send()
-            .await
-            .expect("Failed to create audio query");
-
         let uuid = Uuid::new_v4().to_string();
-        let path = Path::new(&c.tmp_path).join(&uuid);
+        let path = Path::new(&c.tmp_path).join(uuid);
 
         let mut output = File::create(&path).expect("Failed to create file");
-        let audio = audio.bytes().await.expect("Failed to read resp");
+        let audio = get_audio(content, speaker).await.expect("Failed to read resp");
         let mut response_cursor = std::io::Cursor::new(audio);
         std::io::copy(&mut response_cursor, &mut output).expect("Failed to write file");
 
