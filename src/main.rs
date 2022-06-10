@@ -203,7 +203,7 @@ async fn set(_ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
         let mut s = STATE.lock().unwrap();
 
         let mut settings: UserSettings = match s.user_settings.get(&msg.author.id) {
-            Some(settings) => settings.clone(),
+            Some(settings) => *settings,
             None => UserSettings { speaker: None },
         };
 
