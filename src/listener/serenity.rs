@@ -1,14 +1,15 @@
 use std::fs::File;
+use std::ops::DerefMut;
 use std::path::Path;
 use reqwest::header::CONTENT_TYPE;
 use serenity::async_trait;
 use serenity::client::{Context, EventHandler};
 use serenity::model::channel::Message;
 use serenity::model::gateway::Ready;
-use songbird::{create_player, ffmpeg, TrackEvent};
+use songbird::{Call, create_player, ffmpeg, TrackEvent};
 use songbird::Event;
 use uuid::Uuid;
-use crate::{listener::songbird::ReadEndNotifier, CONFIG, CURRENT_TEXT_CHANNEL, ON_MEMORY_SETTING};
+use crate::{listener::songbird::ReadEndNotifier, CONFIG, CURRENT_TEXT_CHANNEL, ON_MEMORY_SETTING, Config};
 use crate::log_serenity_error::LogSerenityError;
 
 pub struct Handler;
@@ -42,6 +43,43 @@ async fn get_audio(text: impl AsRef<str> + Send + Sync, speaker: u8) -> reqwest:
         .expect("Failed to create audio query");
 
     audio.bytes().await
+}
+
+async fn queue_audio(mut call: impl DerefMut<Target=Call>, path: impl AsRef<Path>, msg: Message, ctx: Context) {
+    let handler = &mut *call;
+
+    let source = match ffmpeg(path.as_ref()).await {
+        Ok(source) => source,
+        Err(why) => {
+            println!("Err starting source: {why:?}");
+            msg.reply(ctx, "Error sourcing ffmpeg").await.log_error();
+            return;
+        }
+    };
+
+    let (audio, audio_handle) = create_player(source);
+
+    audio_handle
+        .add_event(
+            Event::Track(TrackEvent::End),
+            ReadEndNotifier {
+                temporary_filename: path.as_ref().to_path_buf(),
+            },
+        )
+        .expect("Failed to create queue");
+
+    handler.enqueue(audio);
+}
+
+/// write all. Returns the temporary file's path.
+fn write_bytes_to_temporary_file(audio: bytes::Bytes, config: &Config) -> impl AsRef<Path> {
+    let path = Path::new(&config.tmp_path).join(Uuid::new_v4().to_string());
+
+    let mut output = File::create(&path).expect("Failed to create file");
+    let mut response_cursor = std::io::Cursor::new(audio);
+    std::io::copy(&mut response_cursor, &mut output).expect("Failed to write file");
+
+    path
 }
 
 #[async_trait]
@@ -106,38 +144,10 @@ impl EventHandler for Handler {
             .unwrap_or(0);
 
         let content = msg.content.as_str();
-        let c = CONFIG.get().unwrap();
 
-        let uuid = Uuid::new_v4().to_string();
-        let path = Path::new(&c.tmp_path).join(uuid);
-
-        let mut output = File::create(&path).expect("Failed to create file");
         let audio = get_audio(content, speaker).await.expect("Failed to read resp");
-        let mut response_cursor = std::io::Cursor::new(audio);
-        std::io::copy(&mut response_cursor, &mut output).expect("Failed to write file");
-
-        let mut handler = handler.lock().await;
-
-        let source = match ffmpeg(&path).await {
-            Ok(source) => source,
-            Err(why) => {
-                println!("Err starting source: {why:?}");
-                msg.reply(ctx, "Error sourcing ffmpeg").await.log_error();
-                return;
-            }
-        };
-
-        let (audio, audio_handle) = create_player(source);
-
-        audio_handle
-            .add_event(
-                Event::Track(TrackEvent::End),
-                ReadEndNotifier {
-                    temporary_filename: path,
-                },
-            )
-            .expect("Failed to create queue");
-
-        handler.enqueue(audio);
+        let config = CONFIG.get().unwrap();
+        let path = write_bytes_to_temporary_file(audio, config);
+        queue_audio(handler.lock().await, path, msg, ctx).await;
     }
 }
