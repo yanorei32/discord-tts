@@ -113,7 +113,7 @@ impl EventHandler for Handler {
         let source = match ffmpeg(&path).await {
             Ok(source) => source,
             Err(why) => {
-                println!("Err starting source: {:?}", why);
+                println!("Err starting source: {why:?}");
                 msg.reply(ctx, "Error sourcing ffmpeg").await.log_error();
                 return;
             }

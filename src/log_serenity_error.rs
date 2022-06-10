@@ -8,7 +8,7 @@ pub trait LogSerenityError {
 impl LogSerenityError for SerenityResult<Message> {
     fn log_error(&self) {
         if let Err(why) = self {
-            println!("Error sending message: {:?}", why);
+            println!("Error sending message: {why:?}");
         }
     }
 }

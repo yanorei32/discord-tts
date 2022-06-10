@@ -61,7 +61,7 @@ async fn main() {
         let _ = client
             .start()
             .await
-            .map_err(|why| println!("Client ended: {:?}", why));
+            .map_err(|why| println!("Client ended: {why:?}"));
     });
 
     tokio::signal::ctrl_c()
