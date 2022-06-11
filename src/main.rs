@@ -6,6 +6,7 @@ mod model;
 mod listener;
 mod persistence;
 mod log_serenity_error;
+mod global;
 
 use std::collections::HashMap;
 use std::sync::Mutex;
@@ -18,18 +19,15 @@ use serenity::{
     Result as SerenityResult,
 };
 use songbird::SerenityInit;
+use crate::global::{CONFIG, ON_MEMORY_SETTING};
 use crate::{
     command::GENERAL_GROUP,
     model::{
-        State, Config, UserSettings
+        Config, State, UserSettings
     }
 };
 use crate::listener::serenity::Handler;
 use crate::persistence::{OnMemorySetting, Persistence};
-
-static CURRENT_TEXT_CHANNEL: Lazy<Mutex<HashMap<GuildId, ChannelId>>> = Lazy::new(|| Mutex::new(HashMap::new()));
-static CONFIG: OnceCell<Config> = OnceCell::new();
-static ON_MEMORY_SETTING: OnceCell<Mutex<OnMemorySetting>> = OnceCell::new();
 
 #[tokio::main]
 async fn main() {

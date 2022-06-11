@@ -9,7 +9,8 @@ use serenity::model::gateway::Ready;
 use songbird::{Call, create_player, ffmpeg, TrackEvent};
 use songbird::Event;
 use uuid::Uuid;
-use crate::{listener::songbird::ReadEndNotifier, CONFIG, CURRENT_TEXT_CHANNEL, ON_MEMORY_SETTING, Config};
+use crate::{Config, listener::songbird::ReadEndNotifier};
+use crate::global::{CONFIG, CURRENT_TEXT_CHANNEL, ON_MEMORY_SETTING};
 use crate::log_serenity_error::LogSerenityError;
 
 pub struct Handler;

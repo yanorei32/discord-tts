@@ -3,7 +3,8 @@ use serenity::framework::standard::{Args, CommandResult, macros::{command, group
 use serenity::model::channel::Message;
 use serenity::prelude::Mentionable;
 use songbird::CoreEvent;
-use crate::{CONFIG, CURRENT_TEXT_CHANNEL, listener::songbird::DriverDisconnectNotifier, ON_MEMORY_SETTING, UserSettings};
+use crate::{listener::songbird::DriverDisconnectNotifier, UserSettings};
+use crate::global::{CONFIG, CURRENT_TEXT_CHANNEL, ON_MEMORY_SETTING};
 use crate::log_serenity_error::LogSerenityError;
 
 #[group]
