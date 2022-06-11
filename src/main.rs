@@ -8,14 +8,11 @@ mod persistence;
 mod log_serenity_error;
 mod global;
 
-use std::collections::HashMap;
 use std::sync::Mutex;
 
-use once_cell::sync::{Lazy, OnceCell};
 use serenity::{
     client::Client,
     framework::StandardFramework,
-    model::prelude::{ChannelId, GuildId},
     Result as SerenityResult,
 };
 use songbird::SerenityInit;
