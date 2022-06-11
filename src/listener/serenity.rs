@@ -44,6 +44,7 @@ async fn get_audio(text: impl AsRef<str> + Send + Sync, speaker: u8, config: &Co
     audio.bytes().await
 }
 
+#[allow(clippy::future_not_send)]
 async fn queue_audio(mut call: impl DerefMut<Target=Call>, path: impl AsRef<Path>, msg: Message, ctx: Context) {
     let handler = &mut *call;
 
