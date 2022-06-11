@@ -1,7 +1,7 @@
+use crate::{Config, State};
 use std::error::Error;
 use std::fs::File;
 use std::io::{BufReader, Write};
-use crate::{Config, State};
 
 #[derive(Debug)]
 pub struct OnMemorySetting {
@@ -18,7 +18,7 @@ impl OnMemorySetting {
                 .expect("Failed to serialize")
                 .as_bytes(),
         )
-            .expect("Unable to write data");
+        .expect("Unable to write data");
     }
 }
 
@@ -31,16 +31,14 @@ impl Persistence {
             Ok(f) => f,
             Err(e) => {
                 println!("Failed to read state.json");
-                return Err(Box::new(e))
+                return Err(Box::new(e));
             }
         };
 
         let reader = BufReader::new(f);
         let res = serde_json::from_reader(reader).expect("JSON was not well-formatted");
         Ok(OnMemorySetting {
-            state: State {
-                user_settings: res
-            }
+            state: State { user_settings: res },
         })
     }
 }

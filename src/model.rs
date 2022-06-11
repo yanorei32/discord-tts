@@ -1,6 +1,6 @@
-use std::collections::HashMap;
-use serenity::model::id::UserId;
 use serde::{Deserialize, Serialize};
+use serenity::model::id::UserId;
+use std::collections::HashMap;
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Config {

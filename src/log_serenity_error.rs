@@ -1,5 +1,5 @@
-use serenity::model::channel::Message;
 use crate::SerenityResult;
+use serenity::model::channel::Message;
 
 pub trait LogSerenityError {
     fn log_error(&self);

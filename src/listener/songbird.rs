@@ -1,9 +1,9 @@
+use serenity::async_trait;
+use songbird::events::EventHandler;
+use songbird::Event;
+use songbird::{EventContext, Songbird};
 use std::path::PathBuf;
 use std::sync::Arc;
-use songbird::{EventContext, Songbird};
-use songbird::Event;
-use songbird::events::EventHandler;
-use serenity::async_trait;
 
 pub struct ReadEndNotifier {
     pub temporary_filename: PathBuf,
@@ -13,7 +13,8 @@ pub struct ReadEndNotifier {
 impl EventHandler for ReadEndNotifier {
     async fn act(&self, ctx: &EventContext<'_>) -> Option<Event> {
         if let EventContext::Track(_) = ctx {
-            std::fs::remove_file(&self.temporary_filename).expect("Failed to remove temporary file");
+            std::fs::remove_file(&self.temporary_filename)
+                .expect("Failed to remove temporary file");
         }
         None
     }

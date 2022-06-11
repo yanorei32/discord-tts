@@ -1,2 +1,2 @@
-pub mod songbird;
 pub mod serenity;
+pub mod songbird;

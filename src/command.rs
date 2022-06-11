@@ -1,11 +1,14 @@
+use crate::global::{CONFIG, CURRENT_TEXT_CHANNEL, ON_MEMORY_SETTING};
+use crate::log_serenity_error::LogSerenityError;
+use crate::{listener::songbird::DriverDisconnectNotifier, UserSettings};
 use serenity::client::Context;
-use serenity::framework::standard::{Args, CommandResult, macros::{command, group}};
+use serenity::framework::standard::{
+    macros::{command, group},
+    Args, CommandResult,
+};
 use serenity::model::channel::Message;
 use serenity::prelude::Mentionable;
 use songbird::CoreEvent;
-use crate::{listener::songbird::DriverDisconnectNotifier, UserSettings};
-use crate::global::{CONFIG, CURRENT_TEXT_CHANNEL, ON_MEMORY_SETTING};
-use crate::log_serenity_error::LogSerenityError;
 
 #[group]
 #[commands(join, leave, skip, set)]
@@ -22,12 +25,21 @@ async fn set(_ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     {
         let s = &mut ON_MEMORY_SETTING.get().unwrap().lock().unwrap().state;
 
-        let mut settings = s.user_settings.get(&msg.author.id).copied().unwrap_or(UserSettings { speaker: None });
+        let mut settings = s
+            .user_settings
+            .get(&msg.author.id)
+            .copied()
+            .unwrap_or(UserSettings { speaker: None });
         settings.speaker = Some(id);
         s.user_settings.insert(msg.author.id, settings);
     }
 
-    ON_MEMORY_SETTING.get().unwrap().lock().unwrap().save(CONFIG.get().unwrap());
+    ON_MEMORY_SETTING
+        .get()
+        .unwrap()
+        .lock()
+        .unwrap()
+        .save(CONFIG.get().unwrap());
 
     Ok(())
 }
@@ -50,7 +62,6 @@ async fn skip(ctx: &Context, msg: &Message, _args: Args) -> CommandResult {
 
     Ok(())
 }
-
 
 #[command]
 #[only_in(guilds)]

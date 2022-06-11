@@ -1,23 +1,27 @@
-use std::fs::File;
-use std::ops::DerefMut;
-use std::path::Path;
+use crate::global::{CONFIG, CURRENT_TEXT_CHANNEL, ON_MEMORY_SETTING};
+use crate::log_serenity_error::LogSerenityError;
+use crate::{listener::songbird::ReadEndNotifier, Config};
 use reqwest::header::CONTENT_TYPE;
 use serenity::async_trait;
 use serenity::client::{Context, EventHandler};
 use serenity::model::channel::Message;
 use serenity::model::gateway::Ready;
-use songbird::{Call, create_player, ffmpeg, TrackEvent};
 use songbird::Event;
+use songbird::{create_player, ffmpeg, Call, TrackEvent};
+use std::fs::File;
+use std::ops::DerefMut;
+use std::path::Path;
 use uuid::Uuid;
-use crate::{Config, listener::songbird::ReadEndNotifier};
-use crate::global::{CONFIG, CURRENT_TEXT_CHANNEL, ON_MEMORY_SETTING};
-use crate::log_serenity_error::LogSerenityError;
 
 pub struct Handler;
 
 /// invoke POST request.
 /// returns audio source that can be passed to ffmpeg function.
-async fn get_audio(text: impl AsRef<str> + Send + Sync, speaker: u8, config: &Config) -> reqwest::Result<bytes::Bytes> {
+async fn get_audio(
+    text: impl AsRef<str> + Send + Sync,
+    speaker: u8,
+    config: &Config,
+) -> reqwest::Result<bytes::Bytes> {
     let client = reqwest::Client::new();
     let query = client
         .post(format!("{}/audio_query", config.voicevox_host))
@@ -45,7 +49,12 @@ async fn get_audio(text: impl AsRef<str> + Send + Sync, speaker: u8, config: &Co
 }
 
 #[allow(clippy::future_not_send)]
-async fn queue_audio(mut call: impl DerefMut<Target=Call>, path: impl AsRef<Path>, msg: Message, ctx: Context) {
+async fn queue_audio(
+    mut call: impl DerefMut<Target = Call>,
+    path: impl AsRef<Path>,
+    msg: Message,
+    ctx: Context,
+) {
     let handler = &mut *call;
 
     let source = match ffmpeg(path.as_ref()).await {
@@ -94,7 +103,10 @@ impl EventHandler for Handler {
         }
 
         if msg.content == "ping" {
-            msg.channel_id.say(&ctx.http, "[discord-tts] pong").await.log_error();
+            msg.channel_id
+                .say(&ctx.http, "[discord-tts] pong")
+                .await
+                .log_error();
             return;
         }
 
@@ -132,7 +144,8 @@ impl EventHandler for Handler {
             None => return,
         }
 
-        let speaker = ON_MEMORY_SETTING.get()
+        let speaker = ON_MEMORY_SETTING
+            .get()
             .unwrap()
             .lock()
             .unwrap()
@@ -145,7 +158,9 @@ impl EventHandler for Handler {
         let content = msg.content.as_str();
 
         let config = CONFIG.get().unwrap();
-        let audio = get_audio(content, speaker, config).await.expect("Failed to read resp");
+        let audio = get_audio(content, speaker, config)
+            .await
+            .expect("Failed to read resp");
         let path = write_bytes_to_temporary_file(audio, config);
         queue_audio(handler.lock().await, path, msg, ctx).await;
     }
