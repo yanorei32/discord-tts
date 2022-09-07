@@ -11,12 +11,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
+      - uses: actions/checkout@v3.0.2
+      - uses: actions/setup-node@v3.4.1
 
       - name: install
         run: |
           npm install -g renovate
+
       - name: validate
         run: |
           renovate-config-validator
