@@ -23,7 +23,7 @@ jobs:
         id: tagname
         run: |
           VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
-          [[ "${{ github.ref }}" == "refs/tags/"* ]] && VERSION="${VERSION/v/}"
+          [[ "${{ github.ref }}" == refs/tags/* ]] && VERSION="${VERSION/v/}"
           [ "$VERSION" == "master" ] && VERSION=latest
           echo $VERSION
           echo ::set-output name=version::$VERSION
