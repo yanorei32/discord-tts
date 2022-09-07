@@ -1,5 +1,13 @@
 {
   "extends": [
     "config:base"
+  ],
+  "regexManagers": [
+    {
+      "fileMatch": ["Dockerfile"],
+      "matchStrings": ["depName=(?<depName>.*?)?\\s.*?_VERSION=\"(?<currentValue>.*?)\""],
+      "versioningTemplate": "loose",
+      "datasourceTemplate": "repology"
+    }
   ]
 }
