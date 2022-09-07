@@ -16,7 +16,7 @@ FROM debian:bullseye-20211220
 RUN set -ex; \
 	apt-get update -qq; \
 	apt-get install -qq -y --no-install-recommends \
-		libopus0 ffmpeg; \
+		"libopus0=1.3.1-0.1" "ffmpeg=7:4.3.4-0+deb11u1"; \
 	rm -rf /var/lib/apt/lists/*; \
 	mkdir /var/discordtts; \
 	echo '{}' > /var/discordtts/state.json;
