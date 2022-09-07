@@ -1,4 +1,5 @@
 FROM rust:1.63.0 as build-env
+LABEL maintainer="yanorei32"
 
 WORKDIR /usr/src
 
@@ -11,7 +12,6 @@ COPY src/* /usr/src/discord-tts/src/
 RUN touch src/* && cargo build --release
 
 FROM debian:bullseye-20211220
-MAINTAINER yanorei32
 
 RUN set -ex; \
 	apt-get update -qq; \
