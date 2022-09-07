@@ -7,10 +7,10 @@ on:
 
 jobs:
   actionlint:
-    name: actionlint with reviewdog
+    name: runner / actionlint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v3.0.2
       - name: actionlint
         uses: reviewdog/action-actionlint@v1.29.0
         with:
