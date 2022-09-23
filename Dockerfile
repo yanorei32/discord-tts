@@ -1,4 +1,4 @@
-FROM rust:1.63.0 as build-env
+FROM rust:1.64.0 as build-env
 LABEL maintainer="yanorei32"
 
 WORKDIR /usr/src
