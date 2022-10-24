@@ -14,7 +14,7 @@ serde_json = "1.0.85"
 serenity = { version = "0.10.10", features = ["client", "standard_framework", "voice", "rustls_backend"] }
 songbird = { version = "0.2.2", features = ["builtin-queue"] }
 tokio = { version = "1.21.2", features = ["macros", "rt-multi-thread", "signal"] }
-tracing = "0.1.36"
+tracing = "0.1.37"
 tracing-futures = "0.2.5"
 tracing-subscriber = "0.3.15"
 uuid = { version = "1.1.2", features = ["v4"] }
