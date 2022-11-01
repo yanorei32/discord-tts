@@ -1,4 +1,9 @@
+extern crate core;
+
+mod voicevox;
+
 use std::collections::HashMap;
+use std::fmt::Debug;
 use std::fs::{self, File};
 use std::io::{self, BufReader, Write};
 use std::path::{Path, PathBuf};
@@ -24,11 +29,19 @@ use serenity::{
     },
     Result as SerenityResult,
 };
+use serenity::builder::CreateInteractionResponse;
+use serenity::model::application::command::CommandOptionType;
+use serenity::model::application::interaction::Interaction;
+use serenity::model::application::interaction::InteractionResponseType;
+use serenity::model::channel::AttachmentType::Bytes;
+use serenity::model::prelude::component::ButtonStyle;
+use serenity::prelude::GatewayIntents;
 use songbird::{
     ffmpeg, tracks::create_player, CoreEvent, Event, EventContext,
     EventHandler as VoiceEventHandler, SerenityInit, Songbird, TrackEvent,
 };
 use uuid::Uuid;
+use crate::voicevox::Speaker;
 
 static CURRENT_TEXT_CHANNEL: Lazy<Mutex<HashMap<GuildId, ChannelId>>> = Lazy::new(|| Mutex::new(HashMap::new()));
 static STATE: Lazy<Mutex<State>> = Lazy::new(|| Mutex::new(
@@ -65,7 +78,25 @@ struct Handler;
 
 #[async_trait]
 impl EventHandler for Handler {
-    async fn ready(&self, _: Context, ready: Ready) {
+    async fn ready(&self, ctx: Context, ready: Ready) {
+        let _ = GuildId(563378729422946305).create_application_command(
+            &ctx.http,
+            |c| {
+                c.name("character")
+                    .description("Manage your speaking character")
+                    .create_option(|option| {
+                        option.kind(CommandOptionType::SubCommand)
+                            .name("current")
+                            .description("Your current speaking character")
+                    })
+                    .create_option(|option| {
+                        option.kind(CommandOptionType::SubCommand)
+                            .name("change")
+                            .description("Change your speaking character")
+                    })
+            },
+        ).await.expect("");
+
         println!("{} is connected!", ready.user.name);
     }
 
@@ -115,17 +146,7 @@ impl EventHandler for Handler {
             }
         }
 
-        let speaker = {
-            let s = STATE.lock().unwrap();
-            match s.user_settings.get(&msg.author.id) {
-                Some(setting) => match setting.speaker {
-                    Some(speaker) => speaker,
-                    _ => 0,
-                },
-                None => 0,
-            }
-            .to_string()
-        };
+        let speaker = get_speaker_id(&msg.author.id).to_string();
 
         let c = CONFIG.get().unwrap();
 
@@ -182,13 +203,76 @@ impl EventHandler for Handler {
 
         handler.enqueue(audio);
     }
+
+    async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
+        if let Interaction::ApplicationCommand(command) = interaction {
+            match command.data.name.as_str() {
+                "character" => {
+                    match command.data.options.first() {
+                        None => unreachable!(),
+                        _ => {
+                            match command.data.options.first().unwrap().name.as_str() {
+                                "current" => {
+                                    let speaker_id = get_speaker_id(&command.user.id);
+                                    let speakers = voicevox::get_speakers();
+
+                                    'speaker: for speaker in &speakers {
+                                        for style in &speaker.styles {
+                                            if style.id == u32::from(speaker_id) {
+                                                let _ = command.create_interaction_response(&ctx.http, |response| {
+                                                    response.kind(InteractionResponseType::ChannelMessageWithSource)
+                                                        .interaction_response_data(|message| {
+                                                            message.add_file(Bytes {
+                                                                data: style.icon.clone(),
+                                                                filename: "icon.png".to_string(),
+                                                            })
+                                                                .embed(|embed| {
+                                                                    embed.author(|author| {
+                                                                        author.name("Character currently in use")
+                                                                    })
+                                                                        .thumbnail("attachment://icon.png")
+                                                                        .field("Character name", &speaker.name, false)
+                                                                        .field("Style", &style.name, true)
+                                                                        .field("id", &style.id, true)
+                                                                })
+                                                                .ephemeral(true)
+                                                        })
+                                                }).await;
+                                                break 'speaker;
+                                            }
+                                        }
+                                    }
+                                }
+                                "change" => {
+                                    let _ = command.create_interaction_response(&ctx.http, |response| {
+                                        get_speaker_response(response, 0)
+                                    }).await;
+                                }
+                                _ => unreachable!()
+                            }
+                        }
+                    }
+
+                    let _ = command.create_interaction_response(&ctx.http, |response| {
+                        response
+                            .kind(InteractionResponseType::ChannelMessageWithSource)
+                            .interaction_response_data(|message| {
+                                message.content(format!("{}", command.data.options.len()))
+                                    .ephemeral(true)
+                            })
+                    }).await;
+                }
+                _ => unreachable!("Unknown command: {}", command.data.name)
+            }
+        }
+    }
 }
 
 #[command]
 #[only_in(guilds)]
 async fn set(_ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     let id = args.single::<u8>().expect("Failed");
-    if !(0..=10).contains(&id) {
+    if !(0..=38).contains(&id) {
         return Ok(());
     }
 
@@ -212,7 +296,7 @@ async fn set(_ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
 #[command]
 #[only_in(guilds)]
 async fn skip(ctx: &Context, msg: &Message, _args: Args) -> CommandResult {
-    let guild = msg.guild(&ctx.cache).await.unwrap();
+    let guild = msg.guild(&ctx.cache).unwrap();
 
     let manager = songbird::get(ctx)
         .await
@@ -270,7 +354,7 @@ impl VoiceEventHandler for DriverDisconnectNotifier {
 #[command]
 #[only_in(guilds)]
 async fn leave(ctx: &Context, msg: &Message) -> CommandResult {
-    let guild = msg.guild(&ctx.cache).await.unwrap();
+    let guild = msg.guild(&ctx.cache).unwrap();
 
     let manager = songbird::get(ctx)
         .await
@@ -299,7 +383,7 @@ async fn leave(ctx: &Context, msg: &Message) -> CommandResult {
 #[command]
 #[only_in(guilds)]
 async fn join(ctx: &Context, msg: &Message) -> CommandResult {
-    let guild = msg.guild(&ctx.cache).await.unwrap();
+    let guild = msg.guild(&ctx.cache).unwrap();
 
     let channel_id = guild
         .voice_states
@@ -374,13 +458,18 @@ async fn main() {
         .unwrap();
 
     load_state();
+    voicevox::load_speaker_info().await;
 
     let framework = StandardFramework::new()
         .configure(|c| c.prefix("~"))
         .group(&GENERAL_GROUP);
 
     let c = CONFIG.get().unwrap();
-    let mut client = Client::builder(&c.discord_token)
+    let intents = GatewayIntents::GUILDS |
+        GatewayIntents::GUILD_VOICE_STATES |
+        GatewayIntents::GUILD_MESSAGES |
+        GatewayIntents::MESSAGE_CONTENT;
+    let mut client = Client::builder(&c.discord_token, intents)
         .event_handler(Handler)
         .framework(framework)
         .register_songbird()
@@ -417,7 +506,7 @@ fn save_state() {
             .expect("Failed to serialize")
             .as_bytes(),
     )
-    .expect("Unable to write data");
+        .expect("Unable to write data");
 }
 
 fn load_state() {
@@ -432,4 +521,71 @@ fn load_state() {
             println!("Failed to read state.json");
         }
     }
+}
+
+fn get_speaker_id(user_id: &UserId) -> u8 {
+    let state = STATE.lock().unwrap();
+    match state.user_settings.get(user_id) {
+        Some(settings) => match settings.speaker {
+            Some(speaker) => speaker,
+            _ => 0
+        },
+        None => 0
+    }
+}
+
+fn get_speaker_response<'a>(response: &'a mut CreateInteractionResponse<'a>, position: u32) -> &'a mut CreateInteractionResponse<'a> {
+    let speakers = voicevox::get_speakers();
+    if position < 0 { panic!() };
+    if position >= speakers.len() as u32 { panic!() }
+    let speaker = (speakers.get(position as usize) as Option<&Speaker>).unwrap();
+
+    response.kind(InteractionResponseType::ChannelMessageWithSource)
+        .interaction_response_data(|message| {
+            message.add_file(Bytes {
+                data: speaker.portrait.to_owned(),
+                filename: "portrait.png".to_string()
+            })
+                .embed(|embed| {
+                    embed.author(|author| {
+                        author.name("Select character you want to use")
+                    })
+                        .thumbnail("attachment://portrait.png")
+                        .field("Character name", &speaker.name, false)
+                        .field("Policy", &speaker.policy, false)
+                })
+                .components(|component| {
+                    component.create_action_row(|action| {
+                        action.create_button(|button| {
+                            if position == 0 {
+                                button.style(ButtonStyle::Secondary)
+                                    .custom_id("previous_character_disabled")
+                                    .label("Previous character")
+                            } else {
+                                button.style(ButtonStyle::Primary)
+                                    .custom_id(format!("previous_character_{}", position - 1))
+                                    .label("Previous character")
+                            }
+                        })
+                            .create_button(|button| {
+                                button.style(ButtonStyle::Success)
+                                    .custom_id(format!("select_character_{}", position))
+                                    .label("Select this character")
+                            })
+                            .create_button(|button| {
+                                if position == speakers.len() as u32 - 1 {
+                                    button.style(ButtonStyle::Secondary)
+                                        .custom_id("next_character_disabled")
+                                        .label("Next character")
+                                } else {
+                                    button.style(ButtonStyle::Primary)
+                                        .custom_id(format!("next_character_{}", position + 1))
+                                        .label("Next character")
+                                }
+                            })
+                    })
+                })
+                .ephemeral(true)
+        });
+    response
 }
