@@ -9,9 +9,17 @@ use std::io::{self, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
+use crate::voicevox::Speaker;
 use once_cell::sync::{Lazy, OnceCell};
 use reqwest::header::CONTENT_TYPE;
 use serde::{Deserialize, Serialize};
+use serenity::builder::CreateInteractionResponse;
+use serenity::model::application::command::CommandOptionType;
+use serenity::model::application::interaction::Interaction;
+use serenity::model::application::interaction::InteractionResponseType;
+use serenity::model::channel::AttachmentType::Bytes;
+use serenity::model::prelude::component::ButtonStyle;
+use serenity::prelude::GatewayIntents;
 use serenity::{
     async_trait,
     client::{Client, Context, EventHandler},
@@ -29,26 +37,19 @@ use serenity::{
     },
     Result as SerenityResult,
 };
-use serenity::builder::CreateInteractionResponse;
-use serenity::model::application::command::CommandOptionType;
-use serenity::model::application::interaction::Interaction;
-use serenity::model::application::interaction::InteractionResponseType;
-use serenity::model::channel::AttachmentType::Bytes;
-use serenity::model::prelude::component::ButtonStyle;
-use serenity::prelude::GatewayIntents;
 use songbird::{
     ffmpeg, tracks::create_player, CoreEvent, Event, EventContext,
     EventHandler as VoiceEventHandler, SerenityInit, Songbird, TrackEvent,
 };
 use uuid::Uuid;
-use crate::voicevox::Speaker;
 
-static CURRENT_TEXT_CHANNEL: Lazy<Mutex<HashMap<GuildId, ChannelId>>> = Lazy::new(|| Mutex::new(HashMap::new()));
-static STATE: Lazy<Mutex<State>> = Lazy::new(|| Mutex::new(
-    State {
-        user_settings: HashMap::new()
-    }
-));
+static CURRENT_TEXT_CHANNEL: Lazy<Mutex<HashMap<GuildId, ChannelId>>> =
+    Lazy::new(|| Mutex::new(HashMap::new()));
+static STATE: Lazy<Mutex<State>> = Lazy::new(|| {
+    Mutex::new(State {
+        user_settings: HashMap::new(),
+    })
+});
 
 #[derive(Deserialize, Debug)]
 struct Config {
@@ -79,23 +80,25 @@ struct Handler;
 #[async_trait]
 impl EventHandler for Handler {
     async fn ready(&self, ctx: Context, ready: Ready) {
-        let _ = GuildId(563378729422946305).create_application_command(
-            &ctx.http,
-            |c| {
+        let _ = GuildId(563378729422946305)
+            .create_application_command(&ctx.http, |c| {
                 c.name("character")
                     .description("Manage your speaking character")
                     .create_option(|option| {
-                        option.kind(CommandOptionType::SubCommand)
+                        option
+                            .kind(CommandOptionType::SubCommand)
                             .name("current")
                             .description("Your current speaking character")
                     })
                     .create_option(|option| {
-                        option.kind(CommandOptionType::SubCommand)
+                        option
+                            .kind(CommandOptionType::SubCommand)
                             .name("change")
                             .description("Change your speaking character")
                     })
-            },
-        ).await.expect("");
+            })
+            .await
+            .expect("");
 
         println!("{} is connected!", ready.user.name);
     }
@@ -210,16 +213,15 @@ impl EventHandler for Handler {
                 "character" => {
                     match command.data.options.first() {
                         None => unreachable!(),
-                        _ => {
-                            match command.data.options.first().unwrap().name.as_str() {
-                                "current" => {
-                                    let speaker_id = get_speaker_id(&command.user.id);
-                                    let speakers = voicevox::get_speakers();
+                        _ => match command.data.options.first().unwrap().name.as_str() {
+                            "current" => {
+                                let speaker_id = get_speaker_id(&command.user.id);
+                                let speakers = voicevox::get_speakers();
 
-                                    'speaker: for speaker in &speakers {
-                                        for style in &speaker.styles {
-                                            if style.id == u32::from(speaker_id) {
-                                                let _ = command.create_interaction_response(&ctx.http, |response| {
+                                'speaker: for speaker in &speakers {
+                                    for style in &speaker.styles {
+                                        if style.id == u32::from(speaker_id) {
+                                            let _ = command.create_interaction_response(&ctx.http, |response| {
                                                     response.kind(InteractionResponseType::ChannelMessageWithSource)
                                                         .interaction_response_data(|message| {
                                                             message.add_file(Bytes {
@@ -238,31 +240,36 @@ impl EventHandler for Handler {
                                                                 .ephemeral(true)
                                                         })
                                                 }).await;
-                                                break 'speaker;
-                                            }
+                                            break 'speaker;
                                         }
                                     }
                                 }
-                                "change" => {
-                                    let _ = command.create_interaction_response(&ctx.http, |response| {
-                                        get_speaker_response(response, 0)
-                                    }).await;
-                                }
-                                _ => unreachable!()
                             }
-                        }
+                            "change" => {
+                                let _ = command
+                                    .create_interaction_response(&ctx.http, |response| {
+                                        get_speaker_response(response, 0);
+                                        response
+                                    })
+                                    .await;
+                            }
+                            _ => unreachable!(),
+                        },
                     }
 
-                    let _ = command.create_interaction_response(&ctx.http, |response| {
-                        response
-                            .kind(InteractionResponseType::ChannelMessageWithSource)
-                            .interaction_response_data(|message| {
-                                message.content(format!("{}", command.data.options.len()))
-                                    .ephemeral(true)
-                            })
-                    }).await;
+                    let _ = command
+                        .create_interaction_response(&ctx.http, |response| {
+                            response
+                                .kind(InteractionResponseType::ChannelMessageWithSource)
+                                .interaction_response_data(|message| {
+                                    message
+                                        .content(format!("{}", command.data.options.len()))
+                                        .ephemeral(true)
+                                })
+                        })
+                        .await;
                 }
-                _ => unreachable!("Unknown command: {}", command.data.name)
+                _ => unreachable!("Unknown command: {}", command.data.name),
             }
         }
     }
@@ -465,10 +472,10 @@ async fn main() {
         .group(&GENERAL_GROUP);
 
     let c = CONFIG.get().unwrap();
-    let intents = GatewayIntents::GUILDS |
-        GatewayIntents::GUILD_VOICE_STATES |
-        GatewayIntents::GUILD_MESSAGES |
-        GatewayIntents::MESSAGE_CONTENT;
+    let intents = GatewayIntents::GUILDS
+        | GatewayIntents::GUILD_VOICE_STATES
+        | GatewayIntents::GUILD_MESSAGES
+        | GatewayIntents::MESSAGE_CONTENT;
     let mut client = Client::builder(&c.discord_token, intents)
         .event_handler(Handler)
         .framework(framework)
@@ -506,7 +513,7 @@ fn save_state() {
             .expect("Failed to serialize")
             .as_bytes(),
     )
-        .expect("Unable to write data");
+    .expect("Unable to write data");
 }
 
 fn load_state() {
@@ -528,57 +535,63 @@ fn get_speaker_id(user_id: &UserId) -> u8 {
     match state.user_settings.get(user_id) {
         Some(settings) => match settings.speaker {
             Some(speaker) => speaker,
-            _ => 0
+            _ => 0,
         },
-        None => 0
+        None => 0,
     }
 }
 
-fn get_speaker_response<'a>(response: &'a mut CreateInteractionResponse<'a>, position: u32) -> &'a mut CreateInteractionResponse<'a> {
+fn get_speaker_response(response: &mut CreateInteractionResponse, position: u32) {
     let speakers = voicevox::get_speakers();
-    if position < 0 { panic!() };
-    if position >= speakers.len() as u32 { panic!() }
+
     let speaker = (speakers.get(position as usize) as Option<&Speaker>).unwrap();
 
-    response.kind(InteractionResponseType::ChannelMessageWithSource)
+    response
+        .kind(InteractionResponseType::ChannelMessageWithSource)
         .interaction_response_data(|message| {
-            message.add_file(Bytes {
-                data: speaker.portrait.to_owned(),
-                filename: "portrait.png".to_string()
-            })
+            message
+                .add_file(Bytes {
+                    data: speaker.portrait.clone(),
+                    filename: "portrait.png".to_string(),
+                })
                 .embed(|embed| {
-                    embed.author(|author| {
-                        author.name("Select character you want to use")
-                    })
+                    embed
+                        .author(|author| author.name("Select character you want to use"))
                         .thumbnail("attachment://portrait.png")
-                        .field("Character name", &speaker.name, false)
-                        .field("Policy", &speaker.policy, false)
+                        .field("Character name", speaker.name.clone(), false)
+                        .field("Policy", speaker.policy.clone(), false)
                 })
                 .components(|component| {
                     component.create_action_row(|action| {
-                        action.create_button(|button| {
-                            if position == 0 {
-                                button.style(ButtonStyle::Secondary)
-                                    .custom_id("previous_character_disabled")
-                                    .label("Previous character")
-                            } else {
-                                button.style(ButtonStyle::Primary)
-                                    .custom_id(format!("previous_character_{}", position - 1))
-                                    .label("Previous character")
-                            }
-                        })
+                        action
                             .create_button(|button| {
-                                button.style(ButtonStyle::Success)
+                                if position == 0 {
+                                    button
+                                        .style(ButtonStyle::Secondary)
+                                        .custom_id("previous_character_disabled")
+                                        .label("Previous character")
+                                } else {
+                                    button
+                                        .style(ButtonStyle::Primary)
+                                        .custom_id(format!("previous_character_{}", position - 1))
+                                        .label("Previous character")
+                                }
+                            })
+                            .create_button(|button| {
+                                button
+                                    .style(ButtonStyle::Success)
                                     .custom_id(format!("select_character_{}", position))
                                     .label("Select this character")
                             })
                             .create_button(|button| {
                                 if position == speakers.len() as u32 - 1 {
-                                    button.style(ButtonStyle::Secondary)
+                                    button
+                                        .style(ButtonStyle::Secondary)
                                         .custom_id("next_character_disabled")
                                         .label("Next character")
                                 } else {
-                                    button.style(ButtonStyle::Primary)
+                                    button
+                                        .style(ButtonStyle::Primary)
                                         .custom_id(format!("next_character_{}", position + 1))
                                         .label("Next character")
                                 }
@@ -587,5 +600,4 @@ fn get_speaker_response<'a>(response: &'a mut CreateInteractionResponse<'a>, pos
                 })
                 .ephemeral(true)
         });
-    response
 }
