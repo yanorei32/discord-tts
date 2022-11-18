@@ -116,17 +116,7 @@ impl EventHandler for Handler {
             }
         }
 
-        let speaker = {
-            let s = STATE.lock().unwrap();
-            match s.user_settings.get(&msg.author.id) {
-                Some(setting) => match setting.speaker {
-                    Some(speaker) => speaker,
-                    _ => 0,
-                },
-                None => 0,
-            }
-            .to_string()
-        };
+        let speaker = get_speaker_id(&msg.author.id).to_string();
 
         let c = CONFIG.get().unwrap();
 
@@ -436,5 +426,16 @@ fn load_state() {
         Err(_) => {
             println!("Failed to read state.json");
         }
+    }
+}
+
+fn get_speaker_id(user_id: &UserId) -> u8 {
+    let state = STATE.lock().unwrap();
+    match state.user_settings.get(user_id) {
+        Some(settings) => match settings.speaker {
+            Some(speaker) => speaker,
+            _ => 0,
+        },
+        None => 0,
     }
 }
