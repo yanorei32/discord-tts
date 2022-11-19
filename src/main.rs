@@ -9,7 +9,12 @@ use std::sync::{Arc, Mutex};
 use once_cell::sync::{Lazy, OnceCell};
 use reqwest::header::CONTENT_TYPE;
 use serde::{Deserialize, Serialize};
+use serenity::builder::CreateInteractionResponseData;
 use serenity::model::application::command::{Command, CommandOptionType};
+use serenity::model::application::interaction::Interaction;
+use serenity::model::application::interaction::InteractionResponseType;
+use serenity::model::channel::AttachmentType::Bytes;
+use serenity::model::prelude::component::ButtonStyle;
 use serenity::prelude::GatewayIntents;
 use serenity::{
     async_trait,
@@ -196,6 +201,113 @@ impl EventHandler for Handler {
             .expect("Failed to create queue");
 
         handler.enqueue(audio);
+    }
+
+    async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
+        match interaction {
+            Interaction::ApplicationCommand(command) => {
+                match command.data.name.as_str() {
+                    "speaker" => {
+                        match command.data.options.first() {
+                            None => unreachable!(),
+                            _ => match command.data.options.first().unwrap().name.as_str() {
+                                "current" => {
+                                    command
+                                        .create_interaction_response(&ctx.http, |response| {
+                                            response
+                                                .kind(InteractionResponseType::ChannelMessageWithSource)
+                                                .interaction_response_data(|message| {
+                                                    build_current_speaker_response(message, &command.user.id);
+                                                    message
+                                                })
+                                        })
+                                        .await
+                                        .expect("Failed to create response");
+                                }
+                                "change" => {
+                                    command
+                                        .create_interaction_response(&ctx.http, |response| {
+                                            response
+                                                .kind(InteractionResponseType::ChannelMessageWithSource)
+                                                .interaction_response_data(|message| {
+                                                    build_speaker_selector_response(message, None, None);
+                                                    message
+                                                })
+                                        })
+                                        .await
+                                        .expect("Failed to create response");
+                                }
+                                _ => unreachable!(),
+                            },
+                        }
+                    }
+                    _ => unreachable!("Unknown command: {}", command.data.name),
+                }
+            }
+            Interaction::MessageComponent(interaction) => {
+                if interaction.data.custom_id.contains("select_style") {
+                    let _ = interaction
+                        .create_interaction_response(&ctx.http, |response| {
+                            let style_id: String = interaction.data.custom_id.chars().skip(13).collect();
+                            let style_id: u8 = style_id.parse().unwrap();
+
+                            {
+                                let mut state = STATE.lock().unwrap();
+                                let mut settings = match state.user_settings.get(&interaction.user.id) {
+                                    Some(settings) => settings.clone(),
+                                    None => UserSettings { speaker: None },
+                                };
+
+                                settings.speaker = Some(style_id);
+                                state.user_settings.insert(interaction.user.id, settings);
+                            }
+                            save_state();
+
+                            response
+                                .kind(InteractionResponseType::UpdateMessage)
+                                .interaction_response_data(|message| {
+                                    build_current_speaker_response(message, &interaction.user.id);
+                                    message.components(|components| components)
+                                })
+                        })
+                        .await
+                        .expect("Failed to create response");
+                } else if interaction.data.custom_id.contains("speaker") {
+                    let _ = &interaction
+                        .create_interaction_response(&ctx.http, |response| {
+                            let values = &interaction.data.values;
+                            let index: usize = values.get(0).unwrap().parse().unwrap();
+
+                            response
+                                .kind(InteractionResponseType::UpdateMessage)
+                                .interaction_response_data(|message| {
+                                    build_speaker_selector_response(message, Some(index), None);
+                                    message
+                                })
+                        })
+                        .await
+                        .expect("Failed to create response");
+                } else if interaction.data.custom_id.contains("style") {
+                    let _ = &interaction
+                        .create_interaction_response(&ctx.http, |response| {
+                            let values = &interaction.data.values;
+                            let indices: Vec<&str> = values.get(0).unwrap().split("_").collect();
+                            let speaker_index: usize = indices.get(0).unwrap().parse().unwrap();
+                            let style_index: usize = indices.get(1).unwrap().parse().unwrap();
+
+                            response
+                                .kind(InteractionResponseType::UpdateMessage)
+                                .interaction_response_data(|message| {
+                                    build_speaker_selector_response(message, Some(speaker_index), Some(style_index));
+                                    message
+                                })
+                        })
+                        .await
+                        .expect("Failed to create response");
+                }
+            }
+            _ => {}
+        }
     }
 }
 
@@ -463,4 +575,183 @@ fn get_speaker_id(user_id: &UserId) -> u8 {
         },
         None => 0,
     }
+}
+
+fn build_current_speaker_response(message: &mut CreateInteractionResponseData, user_id: &UserId) {
+    let speaker_id = get_speaker_id(user_id);
+    let speakers = voicevox::get_speakers();
+
+    'speaker: for speaker in &speakers {
+        for style in &speaker.styles {
+            if style.id == u32::from(speaker_id) {
+                message.add_file(Bytes {
+                    data: style.icon.clone(),
+                    filename: "icon.png".to_string(),
+                })
+                    .embed(|embed| {
+                        embed.author(|author| {
+                            author.name("Speaker currently in use")
+                        })
+                            .thumbnail("attachment://icon.png")
+                            .field("Speaker name", &speaker.name, false)
+                            .field("Style", &style.name, true)
+                            .field("id", &style.id, true)
+                    })
+                    .ephemeral(true);
+                break 'speaker;
+            }
+        }
+    }
+}
+
+fn build_speaker_selector_response(message: &mut CreateInteractionResponseData, speaker_index: Option<usize>, style_index: Option<usize>) {
+    assert!(!(speaker_index.is_none() && style_index.is_some()));
+
+    let speakers = voicevox::get_speakers();
+
+    if let Some(index) = style_index {
+        let speaker_index = speaker_index.unwrap();
+        let speaker = speakers.get(speaker_index).unwrap();
+        let style = speaker.styles.get(index).unwrap();
+        let mut i = 0;
+
+        message.add_file(Bytes {
+            data: style.icon.clone(),
+            filename: "thumbnail.png".to_string()
+        });
+
+        for sample in &style.samples {
+            message.add_file(Bytes {
+                data: sample.clone(),
+                filename: format!("sample{}.wav", i)
+            });
+            i += 1;
+        }
+    } else if let Some(index) = speaker_index {
+        let speaker = speakers.get(index).unwrap();
+
+        message.add_file(Bytes {
+            data: speaker.portrait.clone(),
+            filename: "thumbnail.png".to_string()
+        });
+    }
+
+    if let Some(speaker_index) = speaker_index {
+        let speaker = speakers.get(speaker_index).unwrap();
+
+        message.embed(|embed| {
+            embed
+                .author(|author| {
+                    author.name("Select speaker you want to use")
+                })
+                .thumbnail("attachment://thumbnail.png")
+                .field("Name", &speaker.name, true);
+
+            if let Some(style_index) = style_index {
+                let style = speaker.styles.get(style_index).unwrap();
+                embed
+                    .field("Style",&style.name, true)
+                    .field("ID", &style.id, true);
+            } else {
+                embed
+                    .field("Style", "-", true)
+                    .field("ID", "-", true);
+            }
+
+            embed.field("Policy", &speaker.policy, false)
+         });
+    }
+
+    message
+        .components(|components| {
+            components
+                .create_action_row(|row| {
+                    row.create_select_menu(|menu| {
+                        menu
+                            .placeholder("Speaker selection")
+                            .custom_id("speaker")
+                            .options(|options| {
+                                let mut i = 0;
+
+                                for speaker in &speakers {
+                                    options.create_option(|option| {
+                                        option
+                                            .description("")
+                                            .label(&speaker.name)
+                                            .value(i);
+
+                                        if speaker_index == Some(i) {
+                                            option.default_selection(true);
+                                        }
+                                        option
+                                    });
+                                    i += 1;
+                                }
+                                options
+                            })
+                    })
+                })
+                .create_action_row(|row| {
+                    row.create_select_menu(|menu| {
+                        menu
+                            .placeholder("Style selection")
+                            .custom_id("style")
+                            .options(|options| {
+                                if let Some(index) = speaker_index {
+                                    let speaker = speakers.get(index).unwrap();
+                                    let mut i = 0;
+
+                                    for style in &speaker.styles {
+                                        options
+                                            .create_option(|option| {
+                                                option
+                                                    .description("")
+                                                    .label(&style.name)
+                                                    .value(format!("{}_{}", index, i));
+
+                                                if style_index == Some(i) {
+                                                    option.default_selection(true);
+                                                }
+                                                option
+                                            });
+                                        i += 1;
+                                    }
+                                } else {
+                                    options.create_option(|option| {
+                                        option
+                                            .description("")
+                                            .label("No options found")
+                                            .value("disabled")
+                                    });
+                                }
+                                options
+                            });
+
+                        if speaker_index.is_none() {
+                            menu.disabled(true);
+                        }
+                        menu
+                    })
+                })
+                .create_action_row(|row| {
+                    row.create_button(|button| {
+                        button
+                            .style(ButtonStyle::Success)
+                            .label("Select this style");
+
+                            if let Some(style_index) = style_index {
+                                let speaker_index = speaker_index.unwrap();
+                                let speaker = speakers.get(speaker_index).unwrap();
+                                let style = speaker.styles.get(style_index).unwrap();
+                                button.custom_id(format!("select_style_{}", style.id));
+                            } else {
+                                button
+                                    .custom_id("select_style_disabled")
+                                    .disabled(true);
+                            }
+                        button
+                    })
+                })
+        })
+        .ephemeral(true);
 }
