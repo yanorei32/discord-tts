@@ -7,6 +7,7 @@ use std::sync::{Arc, Mutex};
 use once_cell::sync::{Lazy, OnceCell};
 use reqwest::header::CONTENT_TYPE;
 use serde::{Deserialize, Serialize};
+use serenity::model::application::command::{Command, CommandOptionType};
 use serenity::prelude::GatewayIntents;
 use serenity::{
     async_trait,
@@ -66,7 +67,28 @@ struct Handler;
 
 #[async_trait]
 impl EventHandler for Handler {
-    async fn ready(&self, _: Context, ready: Ready) {
+    async fn ready(&self, ctx: Context, ready: Ready) {
+         let _ = Command::create_global_application_command(&ctx.http, |command| {
+             command
+                 .name("speaker")
+                 .name("speaker")
+                 .description("Manage your speaker")
+                 .create_option(|option| {
+                     option
+                         .kind(CommandOptionType::SubCommand)
+                         .name("current")
+                         .description("Show your current speaker")
+                 })
+                 .create_option(|option| {
+                     option
+                         .kind(CommandOptionType::SubCommand)
+                         .name("change")
+                         .description("Change your speaker")
+                 })
+         })
+             .await
+             .unwrap();
+
         println!("{} is connected!", ready.user.name);
     }
 
