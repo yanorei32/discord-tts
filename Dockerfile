@@ -1,4 +1,4 @@
-FROM rust:1.64.0 as build-env
+FROM rust:1.65.0 as build-env
 LABEL maintainer="yanorei32"
 
 WORKDIR /usr/src
@@ -11,7 +11,7 @@ RUN cargo build --release
 COPY src/* /usr/src/discord-tts/src/
 RUN touch src/* && cargo build --release
 
-FROM debian:bullseye@sha256:bfe6615d017d1eebe19f349669de58cda36c668ef916e618be78071513c690e5
+FROM debian:bullseye@sha256:3066ef83131c678999ce82e8473e8d017345a30f5573ad3e44f62e5c9c46442b
 
 WORKDIR /init
 COPY init.sh /init/
