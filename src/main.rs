@@ -1,3 +1,5 @@
+mod voicevox;
+
 use std::collections::HashMap;
 use std::fs::{self, File};
 use std::io::{self, BufReader, Write};
@@ -387,6 +389,7 @@ async fn main() {
         .unwrap();
 
     load_state();
+    voicevox::load_speaker_info().await;
 
     let framework = StandardFramework::new()
         .configure(|c| c.prefix("~"))
