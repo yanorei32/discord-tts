@@ -21,8 +21,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Install Inkscape
+      - name: Install cmake
         run: |
+          # depName=debian_11/cmake
+          CMAKE_VERSION="3.18.4"
           sudo apt-get -y update
           sudo apt-get install -y cmake
 

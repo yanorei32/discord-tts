@@ -3,7 +3,10 @@ LABEL maintainer="yanorei32"
 
 WORKDIR /usr/src
 
-RUN apt-get update -y && apt-get install -y cmake && cargo new discord-tts
+# depName=debian_11/cmake
+ENV CMAKE_VERSION="3.18.4"
+
+RUN apt-get update -y && apt-get install -y "cmake=${CMAKE_VERSION}" && cargo new discord-tts
 COPY Cargo.toml Cargo.lock /usr/src/discord-tts/
 WORKDIR /usr/src/discord-tts
 RUN cargo build --release
