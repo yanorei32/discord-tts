@@ -7,6 +7,7 @@ use std::sync::{Arc, Mutex};
 use once_cell::sync::{Lazy, OnceCell};
 use reqwest::header::CONTENT_TYPE;
 use serde::{Deserialize, Serialize};
+use serenity::prelude::GatewayIntents;
 use serenity::{
     async_trait,
     client::{Client, Context, EventHandler},
@@ -212,7 +213,7 @@ async fn set(_ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
 #[command]
 #[only_in(guilds)]
 async fn skip(ctx: &Context, msg: &Message, _args: Args) -> CommandResult {
-    let guild = msg.guild(&ctx.cache).await.unwrap();
+    let guild = msg.guild(&ctx.cache).unwrap();
 
     let manager = songbird::get(ctx)
         .await
@@ -270,7 +271,7 @@ impl VoiceEventHandler for DriverDisconnectNotifier {
 #[command]
 #[only_in(guilds)]
 async fn leave(ctx: &Context, msg: &Message) -> CommandResult {
-    let guild = msg.guild(&ctx.cache).await.unwrap();
+    let guild = msg.guild(&ctx.cache).unwrap();
 
     let manager = songbird::get(ctx)
         .await
@@ -299,7 +300,7 @@ async fn leave(ctx: &Context, msg: &Message) -> CommandResult {
 #[command]
 #[only_in(guilds)]
 async fn join(ctx: &Context, msg: &Message) -> CommandResult {
-    let guild = msg.guild(&ctx.cache).await.unwrap();
+    let guild = msg.guild(&ctx.cache).unwrap();
 
     let channel_id = guild
         .voice_states
@@ -380,7 +381,11 @@ async fn main() {
         .group(&GENERAL_GROUP);
 
     let c = CONFIG.get().unwrap();
-    let mut client = Client::builder(&c.discord_token)
+    let intents = GatewayIntents::GUILDS
+        | GatewayIntents::GUILD_VOICE_STATES
+        | GatewayIntents::GUILD_MESSAGES
+        | GatewayIntents::MESSAGE_CONTENT;
+    let mut client = Client::builder(&c.discord_token, intents)
         .event_handler(Handler)
         .framework(framework)
         .register_songbird()
