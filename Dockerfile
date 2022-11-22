@@ -4,7 +4,7 @@ LABEL maintainer="yanorei32"
 WORKDIR /usr/src
 
 # depName=debian_11/cmake
-ENV CMAKE_VERSION="3.18.4"
+ENV CMAKE_VERSION="3.18.4-2+deb11u1"
 
 RUN apt-get update -y && apt-get install -y "cmake=${CMAKE_VERSION}" --no-install-recommends && cargo new discord-tts
 COPY Cargo.toml Cargo.lock /usr/src/discord-tts/
