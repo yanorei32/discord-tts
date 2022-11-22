@@ -330,6 +330,7 @@ dependencies = [
 name = "discord-tts"
 version = "0.1.0"
 dependencies = [
+ "base64",
  "envy",
  "once_cell",
  "reqwest",
