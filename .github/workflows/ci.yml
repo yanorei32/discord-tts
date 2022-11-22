@@ -21,6 +21,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Install Inkscape
+        run: |
+          sudo apt-get -y update
+          sudo apt-get install -y cmake
+
       - uses: actions/checkout@v3.1.0
 
       - uses: actions-rs/toolchain@v1.0.7
