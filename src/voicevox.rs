@@ -77,7 +77,7 @@ pub async fn load_speaker_info() {
             .header(CONTENT_TYPE, "application/json")
             .send()
             .await
-            .expect(format!("Failed to get speaker information of {}", uuid).as_str())
+            .unwrap_or_else(|_| panic!("Failed to get speaker information of {}", uuid))
             .json()
             .await
             .expect("JSON was not well-formatted");
