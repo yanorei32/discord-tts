@@ -24,7 +24,7 @@ jobs:
       - name: Install cmake
         run: |
           # depName=ubuntu_22_04/cmake
-          CMAKE_VERSION="3.16.3-1ubuntu1"
+          CMAKE_VERSION="3.22.1-1ubuntu1.22.04.1"
           sudo apt-get -y update
           sudo apt-get install -y "cmake=${CMAKE_VERSION}" "cmake-data=${CMAKE_VERSION}" --no-install-recommends
 
