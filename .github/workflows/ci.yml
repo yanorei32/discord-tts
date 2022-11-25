@@ -56,10 +56,10 @@ jobs:
         with:
           command: test
 
-      - name: compile for release
-        uses: actions-rs/cargo@v1.0.3
+      - uses: actions-rs/cargo@v1.0.3
         with:
-          command: build --release
+          command: build
+          args: --release
 
       - uses: docker/setup-buildx-action@v2.2.1
 
