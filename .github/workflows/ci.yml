@@ -71,6 +71,7 @@ jobs:
           # shellcheck disable=SC2193
           [[ "${{ github.ref }}" == refs/tags/* ]] && VERSION="${VERSION/v/}"
           [[ "$VERSION" == "master" ]] && VERSION=latest
+          # shellcheck disable=SC2193
           [[ "${{ github.ref }}" == refs/pull/* ]] && VERSION=dontpush
           echo $VERSION
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
