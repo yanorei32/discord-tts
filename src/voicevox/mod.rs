@@ -54,8 +54,7 @@ pub async fn load_speaker_info() {
                     .iter()
                     .find(|api_style| api_style.id == style_info.id)
                     .expect("Style not found")
-                    .name
-                    .to_owned(),
+                    .name.clone(),
                 id: style_info.id,
                 icon: Cow::from(base64::decode(style_info.icon).expect("Failed to decode icon")),
                 samples,
