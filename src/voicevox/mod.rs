@@ -1,64 +1,21 @@
+use crate::CONFIG;
+use once_cell::sync::Lazy;
+use reqwest::header::CONTENT_TYPE;
+use reqwest::Client;
 use std::borrow::Cow;
 use std::str::FromStr;
 use std::sync::Mutex;
-use once_cell::sync::Lazy;
-use reqwest::Client;
-use reqwest::header::CONTENT_TYPE;
-use serde::Deserialize;
 use uuid::Uuid;
-use crate::CONFIG;
 
-#[derive(Deserialize, Debug)]
-struct ApiSpeakers {
-    name: String,
-    speaker_uuid: String,
-    styles: Vec<ApiSpeakersStyles>,
-}
+pub mod model;
 
-#[derive(Deserialize, Debug)]
-struct ApiSpeakersStyles {
-    name: String,
-    id: u32,
-}
-
-#[derive(Deserialize, Debug)]
-struct ApiSpeakerInfo {
-    policy: String,
-    portrait: String,
-    style_infos: Vec<ApiSpeakerInfoStyleInfos>,
-}
-
-#[derive(Deserialize, Debug)]
-struct ApiSpeakerInfoStyleInfos {
-    id: u32,
-    icon: String,
-    voice_samples: Vec<String>,
-}
-
-#[derive(Clone, Debug)]
-pub struct Speaker<'a> {
-    pub name: String,
-    pub uuid: Uuid,
-    pub policy: String,
-    pub portrait: Cow<'a, [u8]>,
-    pub styles: Vec<SpeakerStyle<'a>>,
-}
-
-#[derive(Clone, Debug)]
-pub struct SpeakerStyle<'a> {
-    pub name: String,
-    pub id: u32,
-    pub icon: Cow<'a, [u8]>,
-    pub samples: Vec<Cow<'a, [u8]>>,
-}
-
-static SPEAKERS: Lazy<Mutex<Vec<Speaker>>> = Lazy::new(|| Mutex::new(Vec::new()));
+static SPEAKERS: Lazy<Mutex<Vec<model::Speaker>>> = Lazy::new(|| Mutex::new(Vec::new()));
 
 pub async fn load_speaker_info() {
     let config = CONFIG.get().unwrap();
     let client = Client::new();
 
-    let api_speakers: Vec<ApiSpeakers> = client
+    let api_speakers: Vec<model::ApiSpeakers> = client
         .get(format!("{}/speakers", config.voicevox_host))
         .header(CONTENT_TYPE, "application/json")
         .send()
@@ -71,7 +28,7 @@ pub async fn load_speaker_info() {
     for api_speaker in api_speakers {
         let uuid = api_speaker.speaker_uuid;
 
-        let info: ApiSpeakerInfo = client
+        let info: model::ApiSpeakerInfo = client
             .get(format!("{}/speaker_info", config.voicevox_host))
             .query(&[("speaker_uuid", &uuid)])
             .header(CONTENT_TYPE, "application/json")
@@ -90,37 +47,34 @@ pub async fn load_speaker_info() {
                 samples.push(Cow::from(sample));
             }
 
-            let style = SpeakerStyle {
-                name: api_speaker.styles.iter()
+            let style = model::SpeakerStyle {
+                name: api_speaker
+                    .styles
+                    .iter()
                     .find(|api_style| api_style.id == style_info.id)
                     .expect("Style not found")
-                    .name.to_owned(),
+                    .name
+                    .to_owned(),
                 id: style_info.id,
-                icon: Cow::from(
-                    base64::decode(style_info.icon)
-                        .expect("Failed to decode icon")
-                ),
+                icon: Cow::from(base64::decode(style_info.icon).expect("Failed to decode icon")),
                 samples,
             };
 
             styles.push(style);
         }
 
-        let speaker = Speaker {
+        let speaker = model::Speaker {
             name: api_speaker.name,
             uuid: Uuid::from_str(uuid.as_str()).expect("Failed to parse UUID from str"),
             policy: info.policy,
-            portrait: Cow::from(
-                base64::decode(info.portrait)
-                    .expect("Failed to decode portrait"),
-            ),
-            styles
+            portrait: Cow::from(base64::decode(info.portrait).expect("Failed to decode portrait")),
+            styles,
         };
 
         SPEAKERS.lock().expect("Failed to lock").push(speaker)
     }
 }
 
-pub fn get_speakers<'a>() -> Vec<Speaker<'a>> {
+pub fn get_speakers<'a>() -> Vec<model::Speaker<'a>> {
     SPEAKERS.lock().unwrap().to_vec()
 }
