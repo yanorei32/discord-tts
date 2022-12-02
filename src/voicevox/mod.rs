@@ -1,10 +1,11 @@
+use std::borrow::Cow;
+use std::str::FromStr;
+use std::sync::Mutex;
+
 use crate::CONFIG;
 use once_cell::sync::Lazy;
 use reqwest::header::CONTENT_TYPE;
 use reqwest::Client;
-use std::borrow::Cow;
-use std::str::FromStr;
-use std::sync::Mutex;
 use uuid::Uuid;
 
 pub mod model;
