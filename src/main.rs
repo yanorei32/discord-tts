@@ -1,5 +1,3 @@
-mod voicevox;
-
 use std::collections::HashMap;
 use std::fs::{self, File};
 use std::io::{self, BufReader, Write};
@@ -8,7 +6,6 @@ use std::sync::{Arc, Mutex};
 
 use once_cell::sync::{Lazy, OnceCell};
 use reqwest::header::CONTENT_TYPE;
-use serde::{Deserialize, Serialize};
 use serenity::builder::CreateInteractionResponseData;
 use serenity::model::application::command::{Command, CommandOptionType};
 use serenity::model::application::interaction::Interaction;
@@ -39,33 +36,19 @@ use songbird::{
 };
 use uuid::Uuid;
 
+mod model;
+mod voicevox;
+
 static CURRENT_TEXT_CHANNEL: Lazy<Mutex<HashMap<GuildId, ChannelId>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
-static STATE: Lazy<Mutex<State>> = Lazy::new(|| {
-    Mutex::new(State {
+
+static STATE: Lazy<Mutex<model::State>> = Lazy::new(|| {
+    Mutex::new(model::State {
         user_settings: HashMap::new(),
     })
 });
 
-#[derive(Deserialize, Debug)]
-struct Config {
-    voicevox_host: String,
-    discord_token: String,
-    state_path: String,
-    tmp_path: String,
-}
-
-#[derive(Serialize, Deserialize, Debug, Copy, Clone)]
-struct UserSettings {
-    speaker: Option<u8>,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct State {
-    user_settings: HashMap<UserId, UserSettings>,
-}
-
-static CONFIG: OnceCell<Config> = OnceCell::new();
+static CONFIG: OnceCell<model::Config> = OnceCell::new();
 
 #[group]
 #[commands(join, leave, skip, set)]
@@ -257,7 +240,7 @@ impl EventHandler for Handler {
                                 let mut settings =
                                     match state.user_settings.get(&interaction.user.id) {
                                         Some(settings) => *settings,
-                                        None => UserSettings { speaker: None },
+                                        None => model::UserSettings { speaker: None },
                                     };
 
                                 settings.speaker = Some(style_id);
@@ -328,9 +311,9 @@ async fn set(_ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     {
         let mut s = STATE.lock().unwrap();
 
-        let mut settings: UserSettings = match s.user_settings.get(&msg.author.id) {
+        let mut settings: model::UserSettings = match s.user_settings.get(&msg.author.id) {
             Some(settings) => *settings,
-            None => UserSettings { speaker: None },
+            None => model::UserSettings { speaker: None },
         };
 
         settings.speaker = Some(id);
@@ -503,7 +486,7 @@ async fn main() {
     tracing_subscriber::fmt::init();
 
     CONFIG
-        .set(envy::from_env::<Config>().expect("Failed to get environment"))
+        .set(envy::from_env::<model::Config>().expect("Failed to get environment"))
         .unwrap();
 
     load_state();
