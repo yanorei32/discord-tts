@@ -131,7 +131,7 @@ impl EventHandler for Handler {
             }
         }
 
-        let speaker = get_speaker_id(&msg.author.id).to_string();
+        let speaker = get_speaker_id(msg.author.id).to_string();
 
         let c = CONFIG.get().unwrap();
 
@@ -203,7 +203,7 @@ impl EventHandler for Handler {
                                         .interaction_response_data(|message| {
                                             build_current_speaker_response(
                                                 message,
-                                                &command.user.id,
+                                                command.user.id,
                                             );
                                             message
                                         })
@@ -253,7 +253,7 @@ impl EventHandler for Handler {
                             response
                                 .kind(InteractionResponseType::UpdateMessage)
                                 .interaction_response_data(|message| {
-                                    build_current_speaker_response(message, &interaction.user.id);
+                                    build_current_speaker_response(message, interaction.user.id);
                                     message.components(|components| components)
                                 })
                         })
@@ -557,9 +557,9 @@ fn load_state() {
     }
 }
 
-fn get_speaker_id(user_id: &UserId) -> u8 {
+fn get_speaker_id(user_id: UserId) -> u8 {
     let state = STATE.lock().unwrap();
-    match state.user_settings.get(user_id) {
+    match state.user_settings.get(&user_id) {
         Some(settings) => match settings.speaker {
             Some(speaker) => speaker,
             _ => 0,
@@ -568,7 +568,7 @@ fn get_speaker_id(user_id: &UserId) -> u8 {
     }
 }
 
-fn build_current_speaker_response(message: &mut CreateInteractionResponseData, user_id: &UserId) {
+fn build_current_speaker_response(message: &mut CreateInteractionResponseData, user_id: UserId) {
     let speaker_id = get_speaker_id(user_id);
     let speakers = voicevox::get_speakers();
 
