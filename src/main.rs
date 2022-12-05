@@ -640,16 +640,15 @@ fn build_speaker_selector_response(
                         menu.placeholder("Speaker selection")
                             .custom_id("speaker")
                             .options(|options| {
-                                for (i, speaker) in speakers.iter().enumerate() {
-                                    options.create_option(|option| {
+                                speakers.iter().enumerate().fold(options, |opts, (i, speaker)| {
+                                    opts.create_option(|option| {
                                         option
                                             .description("")
                                             .label(&speaker.name)
                                             .value(i)
                                             .default_selection(selector.speaker() == Some(i))
-                                    });
-                                }
-                                options
+                                    })
+                                })
                             })
                     })
                 })
