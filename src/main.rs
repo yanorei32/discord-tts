@@ -61,7 +61,7 @@ struct Handler;
 #[async_trait]
 impl EventHandler for Handler {
     async fn ready(&self, ctx: Context, ready: Ready) {
-        let _ = Command::create_global_application_command(&ctx.http, |command| {
+        Command::create_global_application_command(&ctx.http, |command| {
             command
                 .name("speaker")
                 .name("speaker")
@@ -354,7 +354,7 @@ struct ReadEndNotifier {
 impl VoiceEventHandler for ReadEndNotifier {
     async fn act(&self, ctx: &EventContext<'_>) -> Option<Event> {
         if let EventContext::Track(_) = ctx {
-            fs::remove_file(&self.temporary_filename).expect("Failed to remove temporary file")
+            fs::remove_file(&self.temporary_filename).expect("Failed to remove temporary file");
         }
         None
     }
@@ -424,12 +424,9 @@ async fn join(ctx: &Context, msg: &Message) -> CommandResult {
         .get(&msg.author.id)
         .and_then(|voice_state| voice_state.channel_id);
 
-    let connect_to = match channel_id {
-        Some(channel) => channel,
-        None => {
-            check_msg(msg.reply(ctx, "Not in a voice channel").await);
-            return Ok(());
-        }
+    let Some(connect_to) = channel_id else {
+        check_msg(msg.reply(ctx, "Not in a voice channel").await);
+        return Ok(());
     };
 
     let manager = songbird::get(ctx)
