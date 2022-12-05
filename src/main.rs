@@ -37,6 +37,7 @@ use songbird::{
     EventHandler as VoiceEventHandler, SerenityInit, Songbird, TrackEvent,
 };
 use uuid::Uuid;
+use crate::model::SpeakerSelector;
 
 mod model;
 mod voicevox;
@@ -580,34 +581,32 @@ fn build_speaker_selector_response(
 ) {
     let speakers = voicevox::get_speakers();
 
-    let message = if let model::SpeakerSelector::SpeakerAndStyle {
-        style,
-        speaker: speaker_index,
-    } = selector
-    {
-        let speaker = speakers.get(speaker_index).unwrap();
-        let style = speaker.styles.get(style).unwrap();
+    let message = match selector {
+        SpeakerSelector::SpeakerAndStyle { speaker: speaker_index, style } => {
+            let speaker = speakers.get(speaker_index).unwrap();
+            let style = speaker.styles.get(style).unwrap();
 
-        message.add_file(Bytes {
-            data: style.icon.clone(),
-            filename: "thumbnail.png".to_string(),
-        });
+            message.add_file(Bytes {
+                data: style.icon.clone(),
+                filename: "thumbnail.png".to_string(),
+            });
 
-        style.samples.iter().enumerate().fold(message, |m, (i, sample)| {
-            m.add_file(Bytes {
-                data: sample.clone(),
-                filename: format!("sample{}.wav", i),
+            style.samples.iter().enumerate().fold(message, |m, (i, sample)| {
+                m.add_file(Bytes {
+                    data: sample.clone(),
+                    filename: format!("sample{}.wav", i),
+                })
             })
-        })
-    } else if let model::SpeakerSelector::SpeakerOnly { speaker: index } = selector {
-        let speaker = speakers.get(index).unwrap();
+        }
+        SpeakerSelector::SpeakerOnly { speaker: index } => {
+            let speaker = speakers.get(index).unwrap();
 
-        message.add_file(Bytes {
-            data: speaker.portrait.clone(),
-            filename: "thumbnail.png".to_string(),
-        })
-    } else {
-        message
+            message.add_file(Bytes {
+                data: speaker.portrait.clone(),
+                filename: "thumbnail.png".to_string(),
+            })
+        }
+        SpeakerSelector::None => message
     };
 
     if let Some(speaker_index) = selector.speaker() {
