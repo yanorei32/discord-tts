@@ -104,9 +104,8 @@ impl EventHandler for Handler {
             _ => {}
         };
 
-        let guild_id = match msg.guild_id {
-            Some(guild_id) => guild_id,
-            None => return,
+        let Some(guild_id) = msg.guild_id else {
+            return;
         };
 
         let manager = songbird::get(&ctx)
@@ -114,21 +113,18 @@ impl EventHandler for Handler {
             .expect("Songbird Voice client placed in at initialisation.")
             .clone();
 
-        let handler = match manager.get(guild_id) {
-            Some(handler) => handler,
-            None => return,
+        let Some(handler) = manager.get(guild_id) else {
+            return;
         };
 
+        if CURRENT_TEXT_CHANNEL
+            .lock()
+            .unwrap()
+            .get(&guild_id)
+            .map(|id| id != &msg.channel_id)
+            .unwrap_or(true)
         {
-            let m = CURRENT_TEXT_CHANNEL.lock().unwrap();
-            match m.get(&guild_id) {
-                Some(channel_id) => {
-                    if channel_id != &msg.channel_id {
-                        return;
-                    }
-                }
-                None => return,
-            }
+            return;
         }
 
         let speaker = get_speaker_id(msg.author.id).to_string();
@@ -164,8 +160,6 @@ impl EventHandler for Handler {
         let mut response_cursor = std::io::Cursor::new(audio);
         io::copy(&mut response_cursor, &mut output).expect("Failed to write file");
 
-        let mut handler = handler.lock().await;
-
         let source = match ffmpeg(&path).await {
             Ok(source) => source,
             Err(why) => {
@@ -186,7 +180,7 @@ impl EventHandler for Handler {
             )
             .expect("Failed to create queue");
 
-        handler.enqueue(audio);
+        handler.lock().await.enqueue(audio);
     }
 
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
@@ -327,9 +321,7 @@ async fn skip(ctx: &Context, msg: &Message, _args: Args) -> CommandResult {
         .clone();
 
     if let Some(handler_lock) = manager.get(guild.id) {
-        let handler = handler_lock.lock().await;
-        let queue = handler.queue();
-        let _ = queue.skip();
+        let _ = handler_lock.lock().await.queue().skip();
     }
 
     Ok(())
@@ -384,15 +376,9 @@ async fn leave(ctx: &Context, msg: &Message) -> CommandResult {
         .expect("Songbird Voice client placed in at initialisation.")
         .clone();
 
-    let has_handler = manager.get(guild.id).is_some();
-
-    if has_handler {
+    if manager.get(guild.id).is_some() {
         if let Err(e) = manager.remove(guild.id).await {
-            check_msg(
-                msg.channel_id
-                    .say(&ctx.http, format!("Failed: {:?}", e))
-                    .await,
-            );
+            check_msg(msg.reply(ctx, format!("Failed: {:?}", e)).await);
         }
 
         check_msg(msg.reply(ctx, "Left voice channel").await);
@@ -427,6 +413,7 @@ async fn join(ctx: &Context, msg: &Message) -> CommandResult {
 
     if let Ok(_channel) = success {
         let mut handler = handler_lock.lock().await;
+
         handler.add_global_event(
             CoreEvent::DriverDisconnect.into(),
             DriverDisconnectNotifier {
@@ -456,8 +443,10 @@ VOICEVOX:波音リツ: http://canon-voice.com/kiyaku.html
                 .await,
         );
 
-        let mut map = CURRENT_TEXT_CHANNEL.lock().unwrap();
-        map.insert(guild.id, msg.channel_id);
+        CURRENT_TEXT_CHANNEL
+            .lock()
+            .unwrap()
+            .insert(guild.id, msg.channel_id);
     } else {
         check_msg(
             msg.channel_id
@@ -489,6 +478,7 @@ async fn main() {
         | GatewayIntents::GUILD_VOICE_STATES
         | GatewayIntents::GUILD_MESSAGES
         | GatewayIntents::MESSAGE_CONTENT;
+
     let mut client = Client::builder(&c.discord_token, intents)
         .event_handler(Handler)
         .framework(framework)
@@ -646,12 +636,11 @@ fn build_speaker_selector_response(
                             .options(|options| {
                                 for (i, speaker) in speakers.iter().enumerate() {
                                     options.create_option(|option| {
-                                        option.description("").label(&speaker.name).value(i);
-
-                                        if speaker_index == Some(i) {
-                                            option.default_selection(true);
-                                        }
                                         option
+                                            .description("")
+                                            .label(&speaker.name)
+                                            .value(i)
+                                            .default_selection(speaker_index == Some(i))
                                     });
                                 }
                                 options
@@ -671,12 +660,8 @@ fn build_speaker_selector_response(
                                             option
                                                 .description("")
                                                 .label(&style.name)
-                                                .value(format!("{}_{}", index, i));
-
-                                            if style_index == Some(i) {
-                                                option.default_selection(true);
-                                            }
-                                            option
+                                                .value(format!("{}_{}", index, i))
+                                                .default_selection(style_index == Some(i))
                                         });
                                     }
                                 } else {
@@ -688,12 +673,8 @@ fn build_speaker_selector_response(
                                     });
                                 }
                                 options
-                            });
-
-                        if speaker_index.is_none() {
-                            menu.disabled(true);
-                        }
-                        menu
+                            })
+                            .disabled(speaker_index.is_none())
                     })
                 })
                 .create_action_row(|row| {
@@ -706,11 +687,10 @@ fn build_speaker_selector_response(
                             let speaker_index = speaker_index.unwrap();
                             let speaker = speakers.get(speaker_index).unwrap();
                             let style = speaker.styles.get(style_index).unwrap();
-                            button.custom_id(format!("select_style_{}", style.id));
+                            button.custom_id(format!("select_style_{}", style.id))
                         } else {
-                            button.custom_id("select_style_disabled").disabled(true);
+                            button.custom_id("select_style_disabled").disabled(true)
                         }
-                        button
                     })
                 })
         })
