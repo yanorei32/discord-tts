@@ -26,7 +26,7 @@ use serenity::{
         },
         channel::{AttachmentType::Bytes, Message},
         gateway::Ready,
-        prelude::{component::ButtonStyle, ChannelId, GatewayIntents, GuildId, UserId},
+        prelude::{ChannelId, GatewayIntents, GuildId, UserId},
     },
 };
 use songbird::{ffmpeg, tracks::create_player, Event, SerenityInit, TrackEvent};
