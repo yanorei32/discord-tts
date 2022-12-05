@@ -210,7 +210,10 @@ impl EventHandler for Handler {
                                     response
                                         .kind(InteractionResponseType::ChannelMessageWithSource)
                                         .interaction_response_data(|message| {
-                                            build_speaker_selector_response(message, SpeakerSelector::None);
+                                            build_speaker_selector_response(
+                                                message,
+                                                model::SpeakerSelector::None,
+                                            );
                                             message
                                         })
                                 })
@@ -261,7 +264,10 @@ impl EventHandler for Handler {
                             response
                                 .kind(InteractionResponseType::UpdateMessage)
                                 .interaction_response_data(|message| {
-                                    build_speaker_selector_response(message, SpeakerSelector::SpeakerOnly { speaker: index });
+                                    build_speaker_selector_response(
+                                        message,
+                                        model::SpeakerSelector::SpeakerOnly { speaker: index },
+                                    );
                                     message
                                 })
                         })
@@ -280,7 +286,7 @@ impl EventHandler for Handler {
                                 .interaction_response_data(|message| {
                                     build_speaker_selector_response(
                                         message,
-                                        SpeakerSelector::SpeakerAndStyle {
+                                        model::SpeakerSelector::SpeakerAndStyle {
                                             speaker: speaker_index,
                                             style: style_index,
                                         },
@@ -571,41 +577,17 @@ fn build_current_speaker_response(message: &mut CreateInteractionResponseData, u
     }
 }
 
-#[derive(Eq, PartialEq, Copy, Clone)]
-enum SpeakerSelector {
-    SpeakerOnly {
-        speaker: usize,
-    },
-    SpeakerAndStyle {
-        speaker: usize,
-        style: usize,
-    },
-    None,
-}
-
-impl SpeakerSelector {
-    fn speaker(&self) -> Option<usize> {
-        match self {
-            SpeakerSelector::SpeakerAndStyle { speaker, .. } | SpeakerSelector::SpeakerOnly { speaker } => Some(*speaker),
-            SpeakerSelector::None => None,
-        }
-    }
-
-    fn style(&self) -> Option<usize> {
-        match self {
-            SpeakerSelector::SpeakerAndStyle { style, .. } => Some(*style),
-            _ => None
-        }
-    }
-}
-
 fn build_speaker_selector_response(
     message: &mut CreateInteractionResponseData,
-    selector: SpeakerSelector,
+    selector: model::SpeakerSelector,
 ) {
     let speakers = voicevox::get_speakers();
 
-    if let SpeakerSelector::SpeakerAndStyle { style, speaker: speaker_index } = selector {
+    if let model::SpeakerSelector::SpeakerAndStyle {
+        style,
+        speaker: speaker_index,
+    } = selector
+    {
         let speaker = speakers.get(speaker_index).unwrap();
         let style = speaker.styles.get(style).unwrap();
 
@@ -620,7 +602,7 @@ fn build_speaker_selector_response(
                 filename: format!("sample{}.wav", i),
             });
         }
-    } else if let SpeakerSelector::SpeakerOnly { speaker: index } = selector {
+    } else if let model::SpeakerSelector::SpeakerOnly { speaker: index } = selector {
         let speaker = speakers.get(index).unwrap();
 
         message.add_file(Bytes {
@@ -708,7 +690,11 @@ fn build_speaker_selector_response(
                             .style(ButtonStyle::Success)
                             .label("Select this style");
 
-                        if let SpeakerSelector::SpeakerAndStyle { speaker: speaker_index, style: style_index } = selector {
+                        if let model::SpeakerSelector::SpeakerAndStyle {
+                            speaker: speaker_index,
+                            style: style_index,
+                        } = selector
+                        {
                             let speaker = speakers.get(speaker_index).unwrap();
                             let style = speaker.styles.get(style_index).unwrap();
                             button.custom_id(format!("select_style_{}", style.id))
