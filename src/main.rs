@@ -1,9 +1,8 @@
 #![warn(clippy::pedantic)]
 
-mod legacy_command_handler;
+mod handler;
 mod model;
 mod serenity_utils;
-mod songbird_event_handler;
 mod voicevox;
 
 use std::collections::HashMap;
@@ -162,7 +161,7 @@ impl EventHandler for Handler {
         audio_handle
             .add_event(
                 Event::Track(TrackEvent::End),
-                songbird_event_handler::ReadEndNotifier {
+                handler::songbird_event::ReadEndNotifier {
                     temporary_filename: path,
                 },
             )
@@ -305,7 +304,7 @@ async fn main() {
 
     let framework = StandardFramework::new()
         .configure(|c| c.prefix("~"))
-        .group(&legacy_command_handler::GENERAL_GROUP);
+        .group(&handler::legacy_command::GENERAL_GROUP);
 
     let c = CONFIG.get().unwrap();
     let intents = GatewayIntents::GUILDS
@@ -471,15 +470,18 @@ fn build_speaker_selector_response(
                         menu.placeholder("Speaker selection")
                             .custom_id("speaker")
                             .options(|options| {
-                                speakers.iter().enumerate().fold(options, |opts, (i, speaker)| {
-                                    opts.create_option(|option| {
-                                        option
-                                            .description("")
-                                            .label(&speaker.name)
-                                            .value(i)
-                                            .default_selection(selector.speaker() == Some(i))
+                                speakers
+                                    .iter()
+                                    .enumerate()
+                                    .fold(options, |opts, (i, speaker)| {
+                                        opts.create_option(|option| {
+                                            option
+                                                .description("")
+                                                .label(&speaker.name)
+                                                .value(i)
+                                                .default_selection(selector.speaker() == Some(i))
+                                        })
                                     })
-                                })
                             })
                     })
                 })

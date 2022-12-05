@@ -8,8 +8,8 @@ use serenity::{
 };
 use songbird::CoreEvent;
 
+use crate::handler::songbird_event::DriverDisconnectNotifier;
 use crate::serenity_utils::check_msg;
-use crate::songbird_event_handler::DriverDisconnectNotifier;
 use crate::CURRENT_TEXT_CHANNEL;
 
 #[group]
@@ -91,8 +91,7 @@ async fn skip(ctx: &Context, msg: &Message, _args: Args) -> CommandResult {
 
     let manager = songbird::get(ctx)
         .await
-        .expect("Songbird Voice client placed in at initialisation.")
-        .clone();
+        .expect("Songbird Voice client placed in at initialisation.");
 
     if let Some(handler_lock) = manager.get(guild.id) {
         let _ = handler_lock.lock().await.queue().skip();
