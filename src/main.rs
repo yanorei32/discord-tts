@@ -544,14 +544,13 @@ fn load_state() {
 }
 
 fn get_speaker_id(user_id: UserId) -> u8 {
-    let state = STATE.lock().unwrap();
-    match state.user_settings.get(&user_id) {
-        Some(settings) => match settings.speaker {
-            Some(speaker) => speaker,
-            _ => 0,
-        },
-        None => 0,
-    }
+    STATE
+        .lock()
+        .unwrap()
+        .user_settings
+        .get(&user_id)
+        .and_then(|s| s.speaker)
+        .unwrap_or(0)
 }
 
 fn build_current_speaker_response(message: &mut CreateInteractionResponseData, user_id: UserId) {
