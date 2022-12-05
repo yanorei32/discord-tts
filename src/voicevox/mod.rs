@@ -40,15 +40,14 @@ pub async fn load_speaker_info() {
             .await
             .expect("JSON was not well-formatted");
 
-        let mut styles = Vec::new();
-        for style_info in info.style_infos {
-            let mut samples = Vec::new();
-            for sample in style_info.voice_samples {
-                let sample = base64::decode(sample).expect("Failed to decode sample");
-                samples.push(Cow::from(sample));
-            }
+        let styles = info.style_infos.into_iter().map(|style_info| {
+            let samples = style_info.voice_samples.into_iter()
+                .map(base64::decode)
+                .map(|res| res.expect("Failed to decode sample"))
+                .map(Cow::from)
+                .collect();
 
-            let style = model::SpeakerStyle {
+            model::SpeakerStyle {
                 name: api_speaker
                     .styles
                     .iter()
@@ -59,10 +58,8 @@ pub async fn load_speaker_info() {
                 id: style_info.id,
                 icon: Cow::from(base64::decode(style_info.icon).expect("Failed to decode icon")),
                 samples,
-            };
-
-            styles.push(style);
-        }
+            }
+        }).collect();
 
         let speaker = model::Speaker {
             name: api_speaker.name,
