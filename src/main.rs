@@ -64,7 +64,6 @@ impl EventHandler for Handler {
         Command::create_global_application_command(&ctx.http, |command| {
             command
                 .name("speaker")
-                .name("speaker")
                 .description("Manage your speaker")
                 .create_option(|option| {
                     option
