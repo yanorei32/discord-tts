@@ -26,14 +26,15 @@ use serenity::{
         },
         channel::{AttachmentType::Bytes, Message},
         gateway::Ready,
-        prelude::{component::ButtonStyle, ChannelId, GatewayIntents, GuildId, UserId},
+        prelude::{ChannelId, GatewayIntents, GuildId, UserId},
     },
 };
 use songbird::{ffmpeg, tracks::create_player, Event, SerenityInit, TrackEvent};
 use uuid::Uuid;
-
+use crate::interactive_component::{CompileWithBuilder, SelectorResponse};
 use crate::model::SpeakerSelector;
 use crate::serenity_utils::check_msg;
+mod interactive_component;
 
 static CURRENT_TEXT_CHANNEL: Lazy<Mutex<HashMap<GuildId, ChannelId>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
@@ -199,7 +200,7 @@ impl EventHandler for Handler {
                                         .interaction_response_data(|message| {
                                             build_speaker_selector_response(
                                                 message,
-                                                model::SpeakerSelector::None,
+                                                SpeakerSelector::None,
                                             );
                                             message
                                         })
@@ -253,7 +254,7 @@ impl EventHandler for Handler {
                                 .interaction_response_data(|message| {
                                     build_speaker_selector_response(
                                         message,
-                                        model::SpeakerSelector::SpeakerOnly { speaker: index },
+                                        SpeakerSelector::SpeakerOnly { speaker: index },
                                     );
                                     message
                                 })
@@ -273,7 +274,7 @@ impl EventHandler for Handler {
                                 .interaction_response_data(|message| {
                                     build_speaker_selector_response(
                                         message,
-                                        model::SpeakerSelector::SpeakerAndStyle {
+                                        SpeakerSelector::SpeakerAndStyle {
                                             speaker: speaker_index,
                                             style: style_index,
                                         },
@@ -389,9 +390,11 @@ fn build_current_speaker_response(message: &mut CreateInteractionResponseData, u
                     embed
                         .author(|author| author.name("Speaker currently in use"))
                         .thumbnail("attachment://icon.png")
-                        .field("Speaker name", &speaker.name, false)
-                        .field("Style", &style.name, true)
-                        .field("id", style.id, true)
+                        .fields([
+                            ("Speaker name", &speaker.name, false),
+                            ("Style", &style.name, true),
+                            ("id", &style.id.to_string(), true)
+                        ])
                 })
                 .ephemeral(true);
             break;
@@ -401,7 +404,7 @@ fn build_current_speaker_response(message: &mut CreateInteractionResponseData, u
 
 fn build_speaker_selector_response(
     message: &mut CreateInteractionResponseData,
-    selector: model::SpeakerSelector,
+    selector: SpeakerSelector,
 ) {
     let speakers = voicevox::get_speakers();
 
@@ -449,93 +452,15 @@ fn build_speaker_selector_response(
                 .thumbnail("attachment://thumbnail.png")
                 .field("Name", &speaker.name, true);
 
-            if let Some(style_index) = selector.style() {
-                let style = speaker.styles.get(style_index).unwrap();
-                embed
-                    .field("Style", &style.name, true)
-                    .field("ID", style.id, true);
-            } else {
-                embed.field("Style", "-", true).field("ID", "-", true);
-            }
-
-            embed.field("Policy", &speaker.policy, false)
+            let style = selector.style().map(|a| speaker.styles.get(a).unwrap());
+            embed
+                .fields([
+                    ("Style", style.map_or_else(|| "-".to_string(), |s| s.name.clone()), true),
+                    ("ID", style.map_or_else(|| "-".to_string(), |s| s.id.to_string()), true),
+                    ("Policy", speaker.policy.clone(), false)
+                ])
         });
     }
 
-    message
-        .components(|components| {
-            components
-                .create_action_row(|row| {
-                    row.create_select_menu(|menu| {
-                        menu.placeholder("Speaker selection")
-                            .custom_id("speaker")
-                            .options(|options| {
-                                speakers
-                                    .iter()
-                                    .enumerate()
-                                    .fold(options, |opts, (i, speaker)| {
-                                        opts.create_option(|option| {
-                                            option
-                                                .description("")
-                                                .label(&speaker.name)
-                                                .value(i)
-                                                .default_selection(selector.speaker() == Some(i))
-                                        })
-                                    })
-                            })
-                    })
-                })
-                .create_action_row(|row| {
-                    row.create_select_menu(|menu| {
-                        menu.placeholder("Style selection")
-                            .custom_id("style")
-                            .options(|options| {
-                                if let Some(index) = selector.speaker() {
-                                    let speaker = speakers.get(index).unwrap();
-
-                                    speaker.styles.iter().enumerate().fold(
-                                        options,
-                                        |opts, (i, style)| {
-                                            opts.create_option(|option| {
-                                                option
-                                                    .description("")
-                                                    .label(&style.name)
-                                                    .value(format!("{}_{}", index, i))
-                                                    .default_selection(selector.style() == Some(i))
-                                            })
-                                        },
-                                    )
-                                } else {
-                                    options.create_option(|option| {
-                                        option
-                                            .description("")
-                                            .label("No options found")
-                                            .value("disabled")
-                                    })
-                                }
-                            })
-                            .disabled(selector.speaker().is_none())
-                    })
-                })
-                .create_action_row(|row| {
-                    row.create_button(|button| {
-                        button
-                            .style(ButtonStyle::Success)
-                            .label("Select this style");
-
-                        if let model::SpeakerSelector::SpeakerAndStyle {
-                            speaker: speaker_index,
-                            style: style_index,
-                        } = selector
-                        {
-                            let speaker = speakers.get(speaker_index).unwrap();
-                            let style = speaker.styles.get(style_index).unwrap();
-                            button.custom_id(format!("select_style_{}", style.id))
-                        } else {
-                            button.custom_id("select_style_disabled").disabled(true)
-                        }
-                    })
-                })
-        })
-        .ephemeral(true);
+    SelectorResponse::default().build((speakers, selector), message);
 }
