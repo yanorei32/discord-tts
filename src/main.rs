@@ -553,25 +553,23 @@ fn build_current_speaker_response(message: &mut CreateInteractionResponseData, u
     let speaker_id = get_speaker_id(user_id);
     let speakers = voicevox::get_speakers();
 
-    'speaker: for speaker in &speakers {
-        for style in &speaker.styles {
-            if style.id == u32::from(speaker_id) {
-                message
-                    .add_file(Bytes {
-                        data: style.icon.clone(),
-                        filename: "icon.png".to_string(),
-                    })
-                    .embed(|embed| {
-                        embed
-                            .author(|author| author.name("Speaker currently in use"))
-                            .thumbnail("attachment://icon.png")
-                            .field("Speaker name", &speaker.name, false)
-                            .field("Style", &style.name, true)
-                            .field("id", style.id, true)
-                    })
-                    .ephemeral(true);
-                break 'speaker;
-            }
+    for speaker in &speakers {
+        if let Some(style) = speaker.styles.iter().find(|style| style.id == u32::from(speaker_id)) {
+            message
+                .add_file(Bytes {
+                    data: style.icon.clone(),
+                    filename: "icon.png".to_string(),
+                })
+                .embed(|embed| {
+                    embed
+                        .author(|author| author.name("Speaker currently in use"))
+                        .thumbnail("attachment://icon.png")
+                        .field("Speaker name", &speaker.name, false)
+                        .field("Style", &style.name, true)
+                        .field("id", style.id, true)
+                })
+                .ephemeral(true);
+            break;
         }
     }
 }
@@ -582,7 +580,7 @@ fn build_speaker_selector_response(
 ) {
     let speakers = voicevox::get_speakers();
 
-    if let model::SpeakerSelector::SpeakerAndStyle {
+    let message = if let model::SpeakerSelector::SpeakerAndStyle {
         style,
         speaker: speaker_index,
     } = selector
@@ -595,20 +593,22 @@ fn build_speaker_selector_response(
             filename: "thumbnail.png".to_string(),
         });
 
-        for (i, sample) in style.samples.iter().enumerate() {
-            message.add_file(Bytes {
+        style.samples.iter().enumerate().fold(message, |m, (i, sample)| {
+            m.add_file(Bytes {
                 data: sample.clone(),
                 filename: format!("sample{}.wav", i),
-            });
-        }
+            })
+        })
     } else if let model::SpeakerSelector::SpeakerOnly { speaker: index } = selector {
         let speaker = speakers.get(index).unwrap();
 
         message.add_file(Bytes {
             data: speaker.portrait.clone(),
             filename: "thumbnail.png".to_string(),
-        });
-    }
+        })
+    } else {
+        message
+    };
 
     if let Some(speaker_index) = selector.speaker() {
         let speaker = speakers.get(speaker_index).unwrap();
@@ -661,24 +661,23 @@ fn build_speaker_selector_response(
                                 if let Some(index) = selector.speaker() {
                                     let speaker = speakers.get(index).unwrap();
 
-                                    for (i, style) in speaker.styles.iter().enumerate() {
-                                        options.create_option(|option| {
+                                    speaker.styles.iter().enumerate().fold(options, |opts, (i, style)| {
+                                        opts.create_option(|option| {
                                             option
                                                 .description("")
                                                 .label(&style.name)
                                                 .value(format!("{}_{}", index, i))
                                                 .default_selection(selector.style() == Some(i))
-                                        });
-                                    }
+                                        })
+                                    })
                                 } else {
                                     options.create_option(|option| {
                                         option
                                             .description("")
                                             .label("No options found")
                                             .value("disabled")
-                                    });
+                                    })
                                 }
-                                options
                             })
                             .disabled(selector.speaker().is_none())
                     })
