@@ -3,6 +3,7 @@ name: CI
 on:
   pull_request:
     paths:
+      - 'Dockerfile'
       - 'src/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
