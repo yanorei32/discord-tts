@@ -16,6 +16,8 @@ on:
 
 env:
   CARGO_INCREMENTAL: 0
+  # キャッシュ破棄
+  RUST_CACHE_VERSION: v1
 
 jobs:
   rust:
@@ -39,6 +41,8 @@ jobs:
 
       - name: cache dependencies
         uses: Swatinem/rust-cache@v2.2.0
+        with:
+          prefix-key: ${{ env.RUST_CACHE_VERSION }}-rust
 
       - name: clippy check
         uses: actions-rs/clippy-check@v1.0.7
