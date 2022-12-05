@@ -8,15 +8,9 @@ use std::sync::{Arc, Mutex};
 
 use once_cell::sync::{Lazy, OnceCell};
 use reqwest::header::CONTENT_TYPE;
-use serenity::builder::CreateInteractionResponseData;
-use serenity::model::application::command::{Command, CommandOptionType};
-use serenity::model::application::interaction::Interaction;
-use serenity::model::application::interaction::InteractionResponseType;
-use serenity::model::channel::AttachmentType::Bytes;
-use serenity::model::prelude::component::ButtonStyle;
-use serenity::prelude::GatewayIntents;
 use serenity::{
     async_trait,
+    builder::CreateInteractionResponseData,
     client::{Client, Context, EventHandler},
     framework::{
         standard::{
@@ -26,9 +20,15 @@ use serenity::{
         StandardFramework,
     },
     model::{
-        channel::Message,
+        application::{
+            command::{Command, CommandOptionType},
+            interaction::{Interaction, InteractionResponseType},
+        },
+        channel::{AttachmentType::Bytes, Message},
         gateway::Ready,
-        prelude::{ChannelId, GuildId, Mentionable, UserId},
+        prelude::{
+            component::ButtonStyle, ChannelId, GatewayIntents, GuildId, Mentionable, UserId,
+        },
     },
     Result as SerenityResult,
 };
