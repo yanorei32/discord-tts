@@ -13,7 +13,7 @@ pub struct Config {
 }
 
 pub fn init() -> Result<()> {
-    if CONFIG.set(envy::from_env::<Config>()?).is_err() {
+    if CONFIG.set(envy::from_env()?).is_err() {
         return Err(anyhow!("Failed to set CONFIG"));
     }
 
