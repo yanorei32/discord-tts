@@ -304,25 +304,14 @@ impl EventHandler for Handler {
 
 #[command]
 #[only_in(guilds)]
-async fn set(_ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
-    let id = args.single::<u8>().expect("Failed");
-    if !(0..=10).contains(&id) {
-        return Ok(());
-    }
-
-    {
-        let mut s = STATE.lock().unwrap();
-
-        let mut settings: model::UserSettings = match s.user_settings.get(&msg.author.id) {
-            Some(settings) => *settings,
-            None => model::UserSettings { speaker: None },
-        };
-
-        settings.speaker = Some(id);
-        s.user_settings.insert(msg.author.id, settings);
-    }
-
-    save_state();
+async fn set(ctx: &Context, msg: &Message, _args: Args) -> CommandResult {
+    check_msg(
+        msg.reply(
+            ctx,
+            "This command is deprecated.\nPlease use a slash command /speaker change",
+        )
+        .await,
+    );
 
     Ok(())
 }
