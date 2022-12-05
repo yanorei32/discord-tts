@@ -17,14 +17,14 @@ pub trait CompileWithBuilder {
 }
 
 macro_rules! rows {
-    ($cc:ident, $param:expr, $x:ident, $($xs: ident),+) => {
+    ($cc:ident, $param:expr, $x:ident, $($xs: ident),+) => {{
         let $cc = $x::default().pipe(GenericRow).build($param.clone(), $cc);
-        rows!($cc, $param, $($xs,)+)
-    };
-    ($cc:ident, $param:expr, $x:ident) => {
+        rows!($cc, $param, $($xs),+)
+    }};
+    ($cc:ident, $param:expr, $x:ident) => {{
         let $cc = $x::default().pipe(GenericRow).build($param.clone(), $cc);
         $cc
-    }
+    }};
 }
 
 #[derive(Default)]
@@ -35,9 +35,7 @@ impl<'a> CompileWithBuilder for SelectorResponse<'a> {
 
     fn build(self, t: Self::Parameters, parent: &mut Self::ParentBuilder) -> &mut Self::ParentBuilder {
         parent.components(|c| {
-            rows!(c, t, SpeakerSelectionMenu, StyleSelectionMenu, ApplyStyleButton);
-
-            c
+            rows!(c, t, SpeakerSelectionMenu, StyleSelectionMenu, ApplyStyleButton)
         })
     }
 }
@@ -77,14 +75,8 @@ impl<'a> CompileWithBuilder for StyleSelectionMenu<'a> {
         menu.placeholder("Style selection")
             .custom_id("style")
             .options(|options| {
-                selector.speaker().map_or_else(|| {
-                    options.create_option(|option|
-                        option
-                            .description("")
-                            .label("No options found")
-                            .value("disabled")
-                    )
-                }, |index| {
+                // E0524回避のためrevert
+                if let Some(index) = selector.speaker() {
                     let speaker = speakers.get(index).unwrap();
 
                     speaker.styles.iter().enumerate().fold(options, |opts, (i, style)| {
@@ -96,7 +88,14 @@ impl<'a> CompileWithBuilder for StyleSelectionMenu<'a> {
                                 .default_selection(selector.style() == Some(i))
                         })
                     })
-                })
+                } else {
+                    options.create_option(|option| {
+                        option
+                            .description("")
+                            .label("No options found")
+                            .value("disabled")
+                    })
+                }
             })
             .disabled(selector.speaker().is_none())
     }
