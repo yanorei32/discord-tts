@@ -2,7 +2,7 @@ FROM rust:1.65.0 as build-env
 LABEL maintainer="yanorei32"
 
 # depName=debian_11/ffmpeg
-ENV CMAKE_VERSION="3.18.4-2+deb11u1"
+ENV CMAKE_VERSION="7:4.3.5-0+deb11u1"
 
 RUN apt-get update -qq && apt-get install -qq -y --no-install-recommends \
 	"cmake=$CMAKE_VERSION"
