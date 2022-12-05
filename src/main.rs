@@ -210,7 +210,7 @@ impl EventHandler for Handler {
                                     response
                                         .kind(InteractionResponseType::ChannelMessageWithSource)
                                         .interaction_response_data(|message| {
-                                            build_speaker_selector_response(message, None, None);
+                                            build_speaker_selector_response(message, SpeakerSelector::None);
                                             message
                                         })
                                 })
@@ -261,7 +261,7 @@ impl EventHandler for Handler {
                             response
                                 .kind(InteractionResponseType::UpdateMessage)
                                 .interaction_response_data(|message| {
-                                    build_speaker_selector_response(message, Some(index), None);
+                                    build_speaker_selector_response(message, SpeakerSelector::SpeakerOnly { speaker: index });
                                     message
                                 })
                         })
@@ -280,8 +280,10 @@ impl EventHandler for Handler {
                                 .interaction_response_data(|message| {
                                     build_speaker_selector_response(
                                         message,
-                                        Some(speaker_index),
-                                        Some(style_index),
+                                        SpeakerSelector::SpeakerAndStyle {
+                                            speaker: speaker_index,
+                                            style: style_index,
+                                        },
                                     );
                                     message
                                 })
@@ -569,19 +571,43 @@ fn build_current_speaker_response(message: &mut CreateInteractionResponseData, u
     }
 }
 
+#[derive(Eq, PartialEq, Copy, Clone)]
+enum SpeakerSelector {
+    SpeakerOnly {
+        speaker: usize,
+    },
+    SpeakerAndStyle {
+        speaker: usize,
+        style: usize,
+    },
+    None,
+}
+
+impl SpeakerSelector {
+    fn speaker(&self) -> Option<usize> {
+        match self {
+            SpeakerSelector::SpeakerAndStyle { speaker, .. } | SpeakerSelector::SpeakerOnly { speaker } => Some(*speaker),
+            SpeakerSelector::None => None,
+        }
+    }
+
+    fn style(&self) -> Option<usize> {
+        match self {
+            SpeakerSelector::SpeakerAndStyle { style, .. } => Some(*style),
+            _ => None
+        }
+    }
+}
+
 fn build_speaker_selector_response(
     message: &mut CreateInteractionResponseData,
-    speaker_index: Option<usize>,
-    style_index: Option<usize>,
+    selector: SpeakerSelector,
 ) {
-    assert!(!(speaker_index.is_none() && style_index.is_some()));
-
     let speakers = voicevox::get_speakers();
 
-    if let Some(index) = style_index {
-        let speaker_index = speaker_index.unwrap();
+    if let SpeakerSelector::SpeakerAndStyle { style, speaker: speaker_index } = selector {
         let speaker = speakers.get(speaker_index).unwrap();
-        let style = speaker.styles.get(index).unwrap();
+        let style = speaker.styles.get(style).unwrap();
 
         message.add_file(Bytes {
             data: style.icon.clone(),
@@ -594,7 +620,7 @@ fn build_speaker_selector_response(
                 filename: format!("sample{}.wav", i),
             });
         }
-    } else if let Some(index) = speaker_index {
+    } else if let SpeakerSelector::SpeakerOnly { speaker: index } = selector {
         let speaker = speakers.get(index).unwrap();
 
         message.add_file(Bytes {
@@ -603,7 +629,7 @@ fn build_speaker_selector_response(
         });
     }
 
-    if let Some(speaker_index) = speaker_index {
+    if let Some(speaker_index) = selector.speaker() {
         let speaker = speakers.get(speaker_index).unwrap();
 
         message.embed(|embed| {
@@ -612,7 +638,7 @@ fn build_speaker_selector_response(
                 .thumbnail("attachment://thumbnail.png")
                 .field("Name", &speaker.name, true);
 
-            if let Some(style_index) = style_index {
+            if let Some(style_index) = selector.style() {
                 let style = speaker.styles.get(style_index).unwrap();
                 embed
                     .field("Style", &style.name, true)
@@ -639,7 +665,7 @@ fn build_speaker_selector_response(
                                             .description("")
                                             .label(&speaker.name)
                                             .value(i)
-                                            .default_selection(speaker_index == Some(i))
+                                            .default_selection(selector.speaker() == Some(i))
                                     });
                                 }
                                 options
@@ -651,7 +677,7 @@ fn build_speaker_selector_response(
                         menu.placeholder("Style selection")
                             .custom_id("style")
                             .options(|options| {
-                                if let Some(index) = speaker_index {
+                                if let Some(index) = selector.speaker() {
                                     let speaker = speakers.get(index).unwrap();
 
                                     for (i, style) in speaker.styles.iter().enumerate() {
@@ -660,7 +686,7 @@ fn build_speaker_selector_response(
                                                 .description("")
                                                 .label(&style.name)
                                                 .value(format!("{}_{}", index, i))
-                                                .default_selection(style_index == Some(i))
+                                                .default_selection(selector.style() == Some(i))
                                         });
                                     }
                                 } else {
@@ -673,7 +699,7 @@ fn build_speaker_selector_response(
                                 }
                                 options
                             })
-                            .disabled(speaker_index.is_none())
+                            .disabled(selector.speaker().is_none())
                     })
                 })
                 .create_action_row(|row| {
@@ -682,8 +708,7 @@ fn build_speaker_selector_response(
                             .style(ButtonStyle::Success)
                             .label("Select this style");
 
-                        if let Some(style_index) = style_index {
-                            let speaker_index = speaker_index.unwrap();
+                        if let SpeakerSelector::SpeakerAndStyle { speaker: speaker_index, style: style_index } = selector {
                             let speaker = speakers.get(speaker_index).unwrap();
                             let style = speaker.styles.get(style_index).unwrap();
                             button.custom_id(format!("select_style_{}", style.id))
