@@ -677,9 +677,7 @@ fn build_speaker_selector_response(
                                             .description("")
                                             .label("No options found")
                                             .value("disabled")
-                                    });
-
-                                    options
+                                    })
                                 }
                             })
                             .disabled(selector.speaker().is_none())
