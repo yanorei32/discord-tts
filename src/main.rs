@@ -1,5 +1,6 @@
 #![warn(clippy::pedantic)]
 
+mod config;
 mod handler;
 mod model;
 mod serenity_utils;
@@ -11,7 +12,7 @@ use std::io::{self, BufReader, Write};
 use std::path::Path;
 use std::sync::Mutex;
 
-use once_cell::sync::{Lazy, OnceCell};
+use once_cell::sync::Lazy;
 use reqwest::header::CONTENT_TYPE;
 use serenity::{
     async_trait,
@@ -42,8 +43,6 @@ static STATE: Lazy<Mutex<model::State>> = Lazy::new(|| {
         user_settings: HashMap::new(),
     })
 });
-
-static CONFIG: OnceCell<model::Config> = OnceCell::new();
 
 struct Handler;
 
@@ -116,7 +115,7 @@ impl EventHandler for Handler {
 
         let speaker = get_speaker_id(msg.author.id).to_string();
 
-        let c = CONFIG.get().unwrap();
+        let c = config::get();
 
         let params = [("text", msg.content.as_str()), ("speaker", &speaker)];
         let client = reqwest::Client::new();
@@ -295,9 +294,7 @@ impl EventHandler for Handler {
 async fn main() {
     tracing_subscriber::fmt::init();
 
-    CONFIG
-        .set(envy::from_env::<model::Config>().expect("Failed to get environment"))
-        .unwrap();
+    config::init().expect("Failed to initialize configuration");
 
     load_state();
     voicevox::load_speaker_info().await;
@@ -306,7 +303,8 @@ async fn main() {
         .configure(|c| c.prefix("~"))
         .group(&handler::legacy_command::GENERAL_GROUP);
 
-    let c = CONFIG.get().unwrap();
+    let c = config::get();
+
     let intents = GatewayIntents::GUILDS
         | GatewayIntents::GUILD_VOICE_STATES
         | GatewayIntents::GUILD_MESSAGES
@@ -334,7 +332,8 @@ async fn main() {
 }
 
 fn save_state() {
-    let c = CONFIG.get().unwrap();
+    let c = config::get();
+
     let mut f = File::create(&c.state_path).expect("Unable to open file.");
 
     let s = STATE.lock().unwrap();
@@ -347,7 +346,8 @@ fn save_state() {
 }
 
 fn load_state() {
-    let c = CONFIG.get().unwrap();
+    let c = config::get();
+
     match File::open(&c.state_path) {
         Ok(f) => {
             let reader = BufReader::new(f);

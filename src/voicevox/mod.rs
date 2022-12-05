@@ -2,18 +2,19 @@ use std::borrow::Cow;
 use std::str::FromStr;
 use std::sync::Mutex;
 
-use crate::CONFIG;
 use once_cell::sync::Lazy;
 use reqwest::header::CONTENT_TYPE;
 use reqwest::Client;
 use uuid::Uuid;
+
+use crate::config;
 
 pub mod model;
 
 static SPEAKERS: Lazy<Mutex<Vec<model::Speaker>>> = Lazy::new(|| Mutex::new(Vec::new()));
 
 pub async fn load_speaker_info() {
-    let config = CONFIG.get().unwrap();
+    let config = config::get();
     let client = Client::new();
 
     let api_speakers: Vec<model::ApiSpeakers> = client
