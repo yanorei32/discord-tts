@@ -1,24 +1,24 @@
 #![warn(clippy::pedantic)]
 
-use std::collections::HashMap;
-use std::fs::{self, File};
-use std::io::{self, BufReader, Write};
-use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+mod config;
+mod handler;
+mod model;
+mod serenity_utils;
+mod voicevox;
 
-use once_cell::sync::{Lazy, OnceCell};
+use std::collections::HashMap;
+use std::fs::File;
+use std::io::{self, BufReader, Write};
+use std::path::Path;
+use std::sync::Mutex;
+
+use once_cell::sync::Lazy;
 use reqwest::header::CONTENT_TYPE;
 use serenity::{
     async_trait,
     builder::CreateInteractionResponseData,
     client::{Client, Context, EventHandler},
-    framework::{
-        standard::{
-            macros::{command, group},
-            Args, CommandResult,
-        },
-        StandardFramework,
-    },
+    framework::StandardFramework,
     model::{
         application::{
             command::{Command, CommandOptionType},
@@ -26,22 +26,14 @@ use serenity::{
         },
         channel::{AttachmentType::Bytes, Message},
         gateway::Ready,
-        prelude::{
-            component::ButtonStyle, ChannelId, GatewayIntents, GuildId, Mentionable, UserId,
-        },
+        prelude::{component::ButtonStyle, ChannelId, GatewayIntents, GuildId, UserId},
     },
-    Result as SerenityResult,
 };
-use songbird::{
-    ffmpeg, tracks::create_player, CoreEvent, Event, EventContext,
-    EventHandler as VoiceEventHandler, SerenityInit, Songbird, TrackEvent,
-};
+use songbird::{ffmpeg, tracks::create_player, Event, SerenityInit, TrackEvent};
 use uuid::Uuid;
 use crate::interactive_component::{CompileWithBuilder, SelectorResponse};
 use crate::model::SpeakerSelector;
-
-mod model;
-mod voicevox;
+use crate::serenity_utils::check_msg;
 mod interactive_component;
 
 static CURRENT_TEXT_CHANNEL: Lazy<Mutex<HashMap<GuildId, ChannelId>>> =
@@ -52,12 +44,6 @@ static STATE: Lazy<Mutex<model::State>> = Lazy::new(|| {
         user_settings: HashMap::new(),
     })
 });
-
-static CONFIG: OnceCell<model::Config> = OnceCell::new();
-
-#[group]
-#[commands(join, leave, skip, set)]
-struct General;
 
 struct Handler;
 
@@ -130,7 +116,7 @@ impl EventHandler for Handler {
 
         let speaker = get_speaker_id(msg.author.id).to_string();
 
-        let c = CONFIG.get().unwrap();
+        let c = config::get();
 
         let params = [("text", msg.content.as_str()), ("speaker", &speaker)];
         let client = reqwest::Client::new();
@@ -175,7 +161,7 @@ impl EventHandler for Handler {
         audio_handle
             .add_event(
                 Event::Track(TrackEvent::End),
-                ReadEndNotifier {
+                handler::songbird_event::ReadEndNotifier {
                     temporary_filename: path,
                 },
             )
@@ -305,184 +291,21 @@ impl EventHandler for Handler {
     }
 }
 
-#[command]
-#[only_in(guilds)]
-async fn set(ctx: &Context, msg: &Message, _args: Args) -> CommandResult {
-    check_msg(
-        msg.reply(
-            ctx,
-            "This command is deprecated.\nPlease use a slash command /speaker change",
-        )
-        .await,
-    );
-
-    Ok(())
-}
-
-#[command]
-#[only_in(guilds)]
-async fn skip(ctx: &Context, msg: &Message, _args: Args) -> CommandResult {
-    let guild = msg.guild(&ctx.cache).unwrap();
-
-    let manager = songbird::get(ctx)
-        .await
-        .expect("Songbird Voice client placed in at initialisation.")
-        .clone();
-
-    if let Some(handler_lock) = manager.get(guild.id) {
-        let _ = handler_lock.lock().await.queue().skip();
-    }
-
-    Ok(())
-}
-
-struct ReadEndNotifier {
-    temporary_filename: PathBuf,
-}
-
-#[async_trait]
-impl VoiceEventHandler for ReadEndNotifier {
-    async fn act(&self, ctx: &EventContext<'_>) -> Option<Event> {
-        if let EventContext::Track(_) = ctx {
-            fs::remove_file(&self.temporary_filename).expect("Failed to remove temporary file");
-        }
-        None
-    }
-}
-
-struct DriverDisconnectNotifier {
-    songbird_manager: Arc<Songbird>,
-}
-
-#[async_trait]
-impl VoiceEventHandler for DriverDisconnectNotifier {
-    async fn act(&self, ctx: &EventContext<'_>) -> Option<Event> {
-        if let EventContext::DriverDisconnect(ctx) = ctx {
-            let guild_id = ctx.guild_id;
-            let manager = &self.songbird_manager;
-            let has_handler = manager.get(guild_id).is_some();
-
-            println!("Force disconnected");
-
-            if has_handler {
-                manager
-                    .remove(guild_id)
-                    .await
-                    .expect("Failed to remove from manager");
-            }
-        }
-        None
-    }
-}
-
-#[command]
-#[only_in(guilds)]
-async fn leave(ctx: &Context, msg: &Message) -> CommandResult {
-    let guild = msg.guild(&ctx.cache).unwrap();
-
-    let manager = songbird::get(ctx)
-        .await
-        .expect("Songbird Voice client placed in at initialisation.")
-        .clone();
-
-    if manager.get(guild.id).is_some() {
-        if let Err(e) = manager.remove(guild.id).await {
-            check_msg(msg.reply(ctx, format!("Failed: {:?}", e)).await);
-        }
-
-        check_msg(msg.reply(ctx, "Left voice channel").await);
-    } else {
-        check_msg(msg.reply(ctx, "Not in a voice channel").await);
-    }
-
-    Ok(())
-}
-
-#[command]
-#[only_in(guilds)]
-async fn join(ctx: &Context, msg: &Message) -> CommandResult {
-    let guild = msg.guild(&ctx.cache).unwrap();
-
-    let channel_id = guild
-        .voice_states
-        .get(&msg.author.id)
-        .and_then(|voice_state| voice_state.channel_id);
-
-    let Some(connect_to) = channel_id else {
-        check_msg(msg.reply(ctx, "Not in a voice channel").await);
-        return Ok(());
-    };
-
-    let manager = songbird::get(ctx)
-        .await
-        .expect("Songbird Voice client placed in at initialisation.")
-        .clone();
-
-    let (handler_lock, success) = manager.join(guild.id, connect_to).await;
-
-    if let Ok(_channel) = success {
-        let mut handler = handler_lock.lock().await;
-
-        handler.add_global_event(
-            CoreEvent::DriverDisconnect.into(),
-            DriverDisconnectNotifier {
-                songbird_manager: manager.clone(),
-            },
-        );
-
-        check_msg(
-            msg.channel_id
-                .say(
-                    &ctx.http,
-                    &format!(
-                        r#"
-**Joined** {}
-
-VOICEVOX
-```
-VOICEVOX:四国めたん|VOICEVOX:ずんだもん: https://zunko.jp/con_ongen_kiyaku.html
-VOICEVOX:春日部つむぎ: https://tsukushinyoki10.wixsite.com/ktsumugiofficial/%E5%88%A9%E7%94%A8%E8%A6%8F%E7%B4%84
-VOICEVOX:雨晴はう: https://amehau.com/?page_id=225
-VOICEVOX:波音リツ: http://canon-voice.com/kiyaku.html
-```
-                        "#,
-                        connect_to.mention()
-                    ),
-                )
-                .await,
-        );
-
-        CURRENT_TEXT_CHANNEL
-            .lock()
-            .unwrap()
-            .insert(guild.id, msg.channel_id);
-    } else {
-        check_msg(
-            msg.channel_id
-                .say(&ctx.http, "Error joining the channel")
-                .await,
-        );
-    }
-
-    Ok(())
-}
-
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::init();
 
-    CONFIG
-        .set(envy::from_env::<model::Config>().expect("Failed to get environment"))
-        .unwrap();
+    config::init().expect("Failed to initialize configuration");
 
     load_state();
     voicevox::load_speaker_info().await;
 
     let framework = StandardFramework::new()
         .configure(|c| c.prefix("~"))
-        .group(&GENERAL_GROUP);
+        .group(&handler::legacy_command::GENERAL_GROUP);
 
-    let c = CONFIG.get().unwrap();
+    let c = config::get();
+
     let intents = GatewayIntents::GUILDS
         | GatewayIntents::GUILD_VOICE_STATES
         | GatewayIntents::GUILD_MESSAGES
@@ -509,14 +332,9 @@ async fn main() {
     println!("Received Ctrl+C, shutting down.");
 }
 
-fn check_msg(result: SerenityResult<Message>) {
-    if let Err(why) = result {
-        println!("Error sending message: {:?}", why);
-    }
-}
-
 fn save_state() {
-    let c = CONFIG.get().unwrap();
+    let c = config::get();
+
     let mut f = File::create(&c.state_path).expect("Unable to open file.");
 
     let s = STATE.lock().unwrap();
@@ -529,7 +347,8 @@ fn save_state() {
 }
 
 fn load_state() {
-    let c = CONFIG.get().unwrap();
+    let c = config::get();
+
     match File::open(&c.state_path) {
         Ok(f) => {
             let reader = BufReader::new(f);
@@ -557,7 +376,11 @@ fn build_current_speaker_response(message: &mut CreateInteractionResponseData, u
     let speakers = voicevox::get_speakers();
 
     for speaker in &speakers {
-        if let Some(style) = speaker.styles.iter().find(|style| style.id == u32::from(speaker_id)) {
+        if let Some(style) = speaker
+            .styles
+            .iter()
+            .find(|style| style.id == u32::from(speaker_id))
+        {
             message
                 .add_file(Bytes {
                     data: style.icon.clone(),
@@ -586,7 +409,10 @@ fn build_speaker_selector_response(
     let speakers = voicevox::get_speakers();
 
     let message = match selector {
-        SpeakerSelector::SpeakerAndStyle { speaker: speaker_index, style } => {
+        SpeakerSelector::SpeakerAndStyle {
+            speaker: speaker_index,
+            style,
+        } => {
             let speaker = speakers.get(speaker_index).unwrap();
             let style = speaker.styles.get(style).unwrap();
 
@@ -595,12 +421,16 @@ fn build_speaker_selector_response(
                 filename: "thumbnail.png".to_string(),
             });
 
-            style.samples.iter().enumerate().fold(message, |m, (i, sample)| {
-                m.add_file(Bytes {
-                    data: sample.clone(),
-                    filename: format!("sample{}.wav", i),
+            style
+                .samples
+                .iter()
+                .enumerate()
+                .fold(message, |m, (i, sample)| {
+                    m.add_file(Bytes {
+                        data: sample.clone(),
+                        filename: format!("sample{}.wav", i),
+                    })
                 })
-            })
         }
         SpeakerSelector::SpeakerOnly { speaker: index } => {
             let speaker = speakers.get(index).unwrap();
@@ -610,7 +440,7 @@ fn build_speaker_selector_response(
                 filename: "thumbnail.png".to_string(),
             })
         }
-        SpeakerSelector::None => message
+        SpeakerSelector::None => message,
     };
 
     if let Some(speaker_index) = selector.speaker() {
