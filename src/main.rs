@@ -120,8 +120,7 @@ impl EventHandler for Handler {
             .lock()
             .unwrap()
             .get(&guild_id)
-            .map(|id| id != &msg.channel_id)
-            .unwrap_or(true)
+            .map_or(true, |id| id != &msg.channel_id)
         {
             return;
         }
