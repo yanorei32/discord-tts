@@ -1,6 +1,8 @@
 FROM rust:1.65.0 as build-env
 LABEL maintainer="yanorei32"
 
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
 # depName=debian_11/cmake
 ENV CMAKE_VERSION="3.18.4-2+deb11u1"
 
