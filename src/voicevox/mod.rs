@@ -41,26 +41,34 @@ pub async fn load_speaker_info() {
             .await
             .expect("JSON was not well-formatted");
 
-        let styles = info.style_infos.into_iter().map(|style_info| {
-            let samples = style_info.voice_samples.into_iter()
-                .map(base64::decode)
-                .map(|res| res.expect("Failed to decode sample"))
-                .map(Cow::from)
-                .collect();
+        let styles = info
+            .style_infos
+            .into_iter()
+            .map(|style_info| {
+                let samples = style_info
+                    .voice_samples
+                    .into_iter()
+                    .map(base64::decode)
+                    .map(|res| res.expect("Failed to decode sample"))
+                    .map(Cow::from)
+                    .collect();
 
-            model::SpeakerStyle {
-                name: api_speaker
-                    .styles
-                    .iter()
-                    .find(|api_style| api_style.id == style_info.id)
-                    .expect("Style not found")
-                    .name
-                    .clone(),
-                id: style_info.id,
-                icon: Cow::from(base64::decode(style_info.icon).expect("Failed to decode icon")),
-                samples,
-            }
-        }).collect();
+                model::SpeakerStyle {
+                    name: api_speaker
+                        .styles
+                        .iter()
+                        .find(|api_style| api_style.id == style_info.id)
+                        .expect("Style not found")
+                        .name
+                        .clone(),
+                    id: style_info.id,
+                    icon: Cow::from(
+                        base64::decode(style_info.icon).expect("Failed to decode icon"),
+                    ),
+                    samples,
+                }
+            })
+            .collect();
 
         let speaker = model::Speaker {
             name: api_speaker.name,

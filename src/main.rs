@@ -2,6 +2,8 @@
 
 mod config;
 mod handler;
+mod interactive_component;
+mod message_filter;
 mod model;
 mod serenity_utils;
 mod voicevox;
@@ -31,10 +33,10 @@ use serenity::{
 };
 use songbird::{ffmpeg, tracks::create_player, Event, SerenityInit, TrackEvent};
 use uuid::Uuid;
+
 use crate::interactive_component::{CompileWithBuilder, SelectorResponse};
 use crate::model::SpeakerSelector;
 use crate::serenity_utils::check_msg;
-mod interactive_component;
 
 static CURRENT_TEXT_CHANNEL: Lazy<Mutex<HashMap<GuildId, ChannelId>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
@@ -78,21 +80,11 @@ impl EventHandler for Handler {
             return;
         }
 
-        if msg.content == "ping" {
-            check_msg(msg.channel_id.say(&ctx.http, "[discord-tts] pong").await);
+        let Some(guild_id) = msg.guild_id else {
             return;
-        }
-
-        match msg.content.get(..1) {
-            Some("~") => return,
-            Some(";") => match msg.content.chars().nth(1) {
-                Some(';') => {}
-                _ => return,
-            },
-            _ => {}
         };
 
-        let Some(guild_id) = msg.guild_id else {
+        let Some(content) = message_filter::filter(msg.content.as_str()) else {
             return;
         };
 
@@ -118,7 +110,7 @@ impl EventHandler for Handler {
 
         let c = config::get();
 
-        let params = [("text", msg.content.as_str()), ("speaker", &speaker)];
+        let params = [("text", &content), ("speaker", &speaker)];
         let client = reqwest::Client::new();
         let query = client
             .post(format!("{}/audio_query", c.voicevox_host))
@@ -393,7 +385,7 @@ fn build_current_speaker_response(message: &mut CreateInteractionResponseData, u
                         .fields([
                             ("Speaker name", &speaker.name, false),
                             ("Style", &style.name, true),
-                            ("id", &style.id.to_string(), true)
+                            ("id", &style.id.to_string(), true),
                         ])
                 })
                 .ephemeral(true);
@@ -453,12 +445,19 @@ fn build_speaker_selector_response(
                 .field("Name", &speaker.name, true);
 
             let style = selector.style().map(|a| speaker.styles.get(a).unwrap());
-            embed
-                .fields([
-                    ("Style", style.map_or_else(|| "-".to_string(), |s| s.name.clone()), true),
-                    ("ID", style.map_or_else(|| "-".to_string(), |s| s.id.to_string()), true),
-                    ("Policy", speaker.policy.clone(), false)
-                ])
+            embed.fields([
+                (
+                    "Style",
+                    style.map_or_else(|| "-".to_string(), |s| s.name.clone()),
+                    true,
+                ),
+                (
+                    "ID",
+                    style.map_or_else(|| "-".to_string(), |s| s.id.to_string()),
+                    true,
+                ),
+                ("Policy", speaker.policy.clone(), false),
+            ])
         });
     }
 

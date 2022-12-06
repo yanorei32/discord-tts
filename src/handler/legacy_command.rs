@@ -25,8 +25,8 @@ async fn join(ctx: &Context, msg: &Message) -> CommandResult {
         .voice_states
         .get(&msg.author.id)
         .and_then(|voice_state| voice_state.channel_id) else {
-        check_msg(msg.reply(ctx, "Not in a voice channel").await);
 
+        check_msg(msg.reply(ctx, "Not in a voice channel").await);
         return Ok(());
     };
 
@@ -37,7 +37,7 @@ async fn join(ctx: &Context, msg: &Message) -> CommandResult {
 
     let (handler_lock, success) = manager.join(guild.id, connect_to).await;
 
-    if let Err(_) = success {
+    if success.is_err() {
         check_msg(
             msg.channel_id
                 .say(&ctx.http, "Error joining the channel")
