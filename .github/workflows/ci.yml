@@ -77,10 +77,9 @@ jobs:
       - name: Create tagname
         id: tagname
         run: |
-          VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
+          VERSION="$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')"
           # 2193: ${{ github.ref }} will replaced by GitHub Actions
-          # 2086: $VERSION does not contains spaces
-          # shellcheck disable=SC2193 disable=SC2086
+          # shellcheck disable=SC2193
           [[ "${{ github.ref }}" == refs/tags/* ]] && VERSION="${VERSION/v/}"
           [[ "$VERSION" == "master" ]] && VERSION=latest
           # shellcheck disable=SC2193
