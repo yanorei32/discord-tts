@@ -84,7 +84,7 @@ jobs:
           [[ "$VERSION" == "master" ]] && VERSION=latest
           # shellcheck disable=SC2193
           [[ "${{ github.ref }}" == refs/pull/* ]] && VERSION=dontpush
-          echo $VERSION
+          echo "$VERSION"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Build and Push
