@@ -16,7 +16,7 @@ serde_json = "1.0.91"
 serenity = { version = "0.11.5", features = ["client", "standard_framework", "voice", "rustls_backend"] }
 songbird = { version = "0.3.0", features = ["builtin-queue"] }
 tap = "1.0.1"
-tokio = { version = "1.23.0", features = ["macros", "rt-multi-thread", "signal"] }
+tokio = { version = "1.24.0", features = ["macros", "rt-multi-thread", "signal"] }
 tracing = "0.1.37"
 tracing-futures = "0.2.5"
 tracing-subscriber = "0.3.16"
