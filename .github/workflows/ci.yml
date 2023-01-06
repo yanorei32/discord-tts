@@ -31,7 +31,7 @@ jobs:
           sudo apt-get -y update
           sudo apt-get install -y "cmake=${CMAKE_VERSION}" "cmake-data=${CMAKE_VERSION}" --no-install-recommends
 
-      - uses: actions/checkout@v3.2.0
+      - uses: actions/checkout@v3.3.0
 
       - uses: actions-rs/toolchain@v1.0.7
         with:
