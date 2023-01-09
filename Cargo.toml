@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.68"
-base64 = "0.20.0"
+base64 = "0.21.0"
 envy = "0.4.2"
 once_cell = "1.17.0"
 reqwest = { version = "0.11.13", features = ["rustls-tls"] , default-features = false }
