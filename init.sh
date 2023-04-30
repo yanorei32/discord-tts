@@ -2,7 +2,7 @@
 set -eux
 
 # depName=debian_11/ffmpeg
-FFMPEG_VERSION="7:4.3.5-0+deb11u1"
+FFMPEG_VERSION="7:4.3.6-0+deb11u1"
 
 apt-get update -qq
 
