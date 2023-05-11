@@ -52,10 +52,10 @@ fn suppress_whitespaces(mes: &str) -> Option<&str> {
     }
 }
 
-fn replace_uri<'t>(mes: &'t str) -> Cow<'t, str> {
+fn replace_uri(mes: &str) -> Cow<'_, str> {
     URI_REGEX.replace_all(mes, "。URI省略。")
 }
 
-fn replace_codeblock<'t>(mes: &'t str) -> Cow<'t, str> {
+fn replace_codeblock(mes: &str) -> Cow<'_, str> {
     CODEBLOCK_REGEX.replace_all(mes, "。コード省略。")
 }

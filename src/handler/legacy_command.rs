@@ -94,7 +94,7 @@ async fn skip(ctx: &Context, msg: &Message, _args: Args) -> CommandResult {
         .expect("Songbird Voice client placed in at initialisation.");
 
     if let Some(handler_lock) = manager.get(guild.id) {
-        let _ = handler_lock.lock().await.queue().skip();
+        let _: Result<_, _> = handler_lock.lock().await.queue().skip();
     }
 
     Ok(())
@@ -126,7 +126,7 @@ async fn leave(ctx: &Context, msg: &Message) -> CommandResult {
 
     if manager.get(guild.id).is_some() {
         if let Err(e) = manager.remove(guild.id).await {
-            check_msg(msg.reply(ctx, format!("Failed: {:?}", e)).await);
+            check_msg(msg.reply(ctx, format!("Failed: {e:?}")).await);
         }
 
         check_msg(msg.reply(ctx, "Left voice channel").await);

@@ -84,7 +84,7 @@ impl<'a> CompileWithBuilder for StyleSelectionMenu<'a> {
                             option
                                 .description("")
                                 .label(&style.name)
-                                .value(format!("{}_{}", index, i))
+                                .value(format!("{index}_{i}"))
                                 .default_selection(selector.style() == Some(i))
                         })
                     })

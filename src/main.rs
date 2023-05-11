@@ -142,7 +142,7 @@ impl EventHandler for Handler {
         let source = match ffmpeg(&path).await {
             Ok(source) => source,
             Err(why) => {
-                println!("Err starting source: {:?}", why);
+                println!("Err starting source: {why:?}");
                 check_msg(msg.reply(ctx, "Error sourcing ffmpeg").await);
                 return;
             }
@@ -207,7 +207,7 @@ impl EventHandler for Handler {
             },
             Interaction::MessageComponent(interaction) => {
                 if interaction.data.custom_id.contains("select_style") {
-                    let _ = interaction
+                    interaction
                         .create_interaction_response(&ctx.http, |response| {
                             let style_id: String =
                                 interaction.data.custom_id.chars().skip(13).collect();
@@ -236,7 +236,7 @@ impl EventHandler for Handler {
                         .await
                         .expect("Failed to create response");
                 } else if interaction.data.custom_id.contains("speaker") {
-                    let _ = &interaction
+                    interaction
                         .create_interaction_response(&ctx.http, |response| {
                             let values = &interaction.data.values;
                             let index: usize = values.get(0).unwrap().parse().unwrap();
@@ -254,7 +254,7 @@ impl EventHandler for Handler {
                         .await
                         .expect("Failed to create response");
                 } else if interaction.data.custom_id.contains("style") {
-                    let _ = &interaction
+                    interaction
                         .create_interaction_response(&ctx.http, |response| {
                             let values = &interaction.data.values;
                             let indices: Vec<&str> = values.get(0).unwrap().split('_').collect();
@@ -311,10 +311,10 @@ async fn main() {
         .expect("Failed to create client");
 
     tokio::spawn(async move {
-        let _ = client
+        let _: Result<_, _> = client
             .start()
             .await
-            .map_err(|why| println!("Client ended: {:?}", why));
+            .map_err(|why| println!("Client ended: {why:?}"));
     });
 
     tokio::signal::ctrl_c()
@@ -420,7 +420,7 @@ fn build_speaker_selector_response(
                 .fold(message, |m, (i, sample)| {
                     m.add_file(Bytes {
                         data: sample.clone(),
-                        filename: format!("sample{}.wav", i),
+                        filename: format!("sample{i}.wav"),
                     })
                 })
         }

@@ -2,6 +2,7 @@ use std::borrow::Cow;
 use std::str::FromStr;
 use std::sync::Mutex;
 
+use base64::{Engine as _, engine::general_purpose::STANDARD as base64_engine};
 use once_cell::sync::Lazy;
 use reqwest::header::CONTENT_TYPE;
 use reqwest::Client;
@@ -36,7 +37,7 @@ pub async fn load_speaker_info() {
             .header(CONTENT_TYPE, "application/json")
             .send()
             .await
-            .unwrap_or_else(|_| panic!("Failed to get speaker information of {}", uuid))
+            .unwrap_or_else(|_| panic!("Failed to get speaker information of {uuid}"))
             .json()
             .await
             .expect("JSON was not well-formatted");
@@ -48,8 +49,7 @@ pub async fn load_speaker_info() {
                 let samples = style_info
                     .voice_samples
                     .into_iter()
-                    .map(base64::decode)
-                    .map(|res| res.expect("Failed to decode sample"))
+                    .map(|s| base64_engine.decode(s).expect("Failed to decode sample"))
                     .map(Cow::from)
                     .collect();
 
@@ -63,7 +63,7 @@ pub async fn load_speaker_info() {
                         .clone(),
                     id: style_info.id,
                     icon: Cow::from(
-                        base64::decode(style_info.icon).expect("Failed to decode icon"),
+                        base64_engine.decode(style_info.icon).expect("Failed to decode icon"),
                     ),
                     samples,
                 }
@@ -74,7 +74,7 @@ pub async fn load_speaker_info() {
             name: api_speaker.name,
             uuid: Uuid::from_str(uuid.as_str()).expect("Failed to parse UUID from str"),
             policy: info.policy,
-            portrait: Cow::from(base64::decode(info.portrait).expect("Failed to decode portrait")),
+            portrait: Cow::from(base64_engine.decode(info.portrait).expect("Failed to decode portrait")),
             styles,
         };
 
