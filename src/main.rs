@@ -2,15 +2,16 @@
 
 mod commands;
 mod config;
-mod songbird_handler;
+mod db;
 mod interactive_component;
 mod message_filter;
 mod model;
+mod songbird_handler;
 mod voicevox;
 
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::{self, BufReader, Write};
+use std::io;
 use std::path::Path;
 use std::sync::Mutex;
 
@@ -22,7 +23,7 @@ use serenity::{
     client::{Client, Context, EventHandler},
     model::{
         application::{
-            command::{Command, CommandOptionType},
+            command::Command,
             interaction::{Interaction, InteractionResponseType},
         },
         channel::{AttachmentType::Bytes, Message},
@@ -33,18 +34,13 @@ use serenity::{
 use songbird::{ffmpeg, tracks::create_player, Event, SerenityInit, TrackEvent};
 use uuid::Uuid;
 
+use crate::config::CONFIG;
 use crate::interactive_component::{CompileWithBuilder, SelectorResponse};
 use crate::model::SpeakerSelector;
-use crate::config::CONFIG;
+use crate::db::STATE_DB;
 
 static WATCH_CHANNELS: Lazy<Mutex<HashMap<GuildId, ChannelId>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
-
-static STATE: Lazy<Mutex<model::State>> = Lazy::new(|| {
-    Mutex::new(model::State {
-        user_settings: HashMap::new(),
-    })
-});
 
 struct Handler;
 
@@ -53,26 +49,10 @@ impl EventHandler for Handler {
     async fn ready(&self, ctx: Context, ready: Ready) {
         Command::set_global_application_commands(&ctx.http, |commands| {
             commands
-                .create_application_command(|command| commands::join::register(command))
-                .create_application_command(|command| commands::leave::register(command))
-                .create_application_command(|command| commands::skip::register(command))
-                .create_application_command(|command| {
-                    command
-                        .name("speaker")
-                        .description("Manage your speaker")
-                        .create_option(|option| {
-                            option
-                                .kind(CommandOptionType::SubCommand)
-                                .name("current")
-                                .description("Show your current speaker")
-                        })
-                        .create_option(|option| {
-                            option
-                                .kind(CommandOptionType::SubCommand)
-                                .name("change")
-                                .description("Change your speaker")
-                        })
-                })
+                .create_application_command(commands::join::register)
+                .create_application_command(commands::leave::register)
+                .create_application_command(commands::skip::register)
+                .create_application_command(commands::speaker::register)
         })
         .await
         .unwrap();
@@ -89,14 +69,13 @@ impl EventHandler for Handler {
             return;
         };
 
-        let Some(content) = message_filter::filter(msg.content.as_str()) else {
+        let Some(content) = message_filter::filter(&msg.content) else {
             return;
         };
 
         let manager = songbird::get(&ctx)
             .await
-            .expect("Songbird Voice client placed in at init.")
-            .clone();
+            .expect("Songbird is not initialized");
 
         let Some(handler) = manager.get(guild_id) else {
             return;
@@ -111,7 +90,7 @@ impl EventHandler for Handler {
             return;
         }
 
-        let speaker = get_speaker_id(msg.author.id).to_string();
+        let speaker = STATE_DB.get_speaker_id(msg.author.id).to_string();
 
         let params = [("text", &content), ("speaker", &speaker)];
         let client = reqwest::Client::new();
@@ -167,44 +146,7 @@ impl EventHandler for Handler {
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
         match interaction {
             Interaction::ApplicationCommand(command) => match command.data.name.as_str() {
-                "speaker" => match command.data.options.first() {
-                    None => unreachable!(),
-                    _ => match command.data.options.first().unwrap().name.as_str() {
-                        "current" => {
-                            command
-                                .create_interaction_response(&ctx.http, |response| {
-                                    response
-                                        .kind(InteractionResponseType::ChannelMessageWithSource)
-                                        .interaction_response_data(|message| {
-                                            build_current_speaker_response(
-                                                message,
-                                                command.user.id,
-                                            );
-                                            message
-                                        })
-                                })
-                                .await
-                                .expect("Failed to create response");
-                        }
-                        "change" => {
-                            command
-                                .create_interaction_response(&ctx.http, |response| {
-                                    response
-                                        .kind(InteractionResponseType::ChannelMessageWithSource)
-                                        .interaction_response_data(|message| {
-                                            build_speaker_selector_response(
-                                                message,
-                                                SpeakerSelector::None,
-                                            );
-                                            message
-                                        })
-                                })
-                                .await
-                                .expect("Failed to create response");
-                        }
-                        _ => unreachable!(),
-                    },
-                },
+                "speaker" => commands::speaker::run(&ctx, command).await,
                 "join" => commands::join::run(&ctx, command).await,
                 "leave" => commands::leave::run(&ctx, command).await,
                 "skip" => commands::skip::run(&ctx, command).await,
@@ -218,18 +160,7 @@ impl EventHandler for Handler {
                                 interaction.data.custom_id.chars().skip(13).collect();
                             let style_id: u8 = style_id.parse().unwrap();
 
-                            {
-                                let mut state = STATE.lock().unwrap();
-                                let mut settings =
-                                    match state.user_settings.get(&interaction.user.id) {
-                                        Some(settings) => *settings,
-                                        None => model::UserSettings { speaker: None },
-                                    };
-
-                                settings.speaker = Some(style_id);
-                                state.user_settings.insert(interaction.user.id, settings);
-                            }
-                            save_state();
+                            STATE_DB.store_speaker_id(interaction.user.id, style_id);
 
                             response
                                 .kind(InteractionResponseType::UpdateMessage)
@@ -292,7 +223,6 @@ impl EventHandler for Handler {
 async fn main() {
     tracing_subscriber::fmt::init();
 
-    load_state();
     voicevox::load_speaker_info().await;
 
     let intents = GatewayIntents::GUILDS
@@ -320,43 +250,8 @@ async fn main() {
     println!("Received Ctrl+C, shutting down.");
 }
 
-fn save_state() {
-    let mut f = File::create(&CONFIG.state_path).expect("Unable to open file.");
-
-    let s = STATE.lock().unwrap();
-    f.write_all(
-        serde_json::to_string(&s.user_settings)
-            .expect("Failed to serialize")
-            .as_bytes(),
-    )
-    .expect("Unable to write data");
-}
-
-fn load_state() {
-    match File::open(&CONFIG.state_path) {
-        Ok(f) => {
-            let reader = BufReader::new(f);
-            let mut s = STATE.lock().unwrap();
-            s.user_settings = serde_json::from_reader(reader).expect("JSON was not well-formatted");
-        }
-        Err(_) => {
-            println!("Failed to read state.json");
-        }
-    }
-}
-
-fn get_speaker_id(user_id: UserId) -> u8 {
-    STATE
-        .lock()
-        .unwrap()
-        .user_settings
-        .get(&user_id)
-        .and_then(|s| s.speaker)
-        .unwrap_or(0)
-}
-
 fn build_current_speaker_response(message: &mut CreateInteractionResponseData, user_id: UserId) {
-    let speaker_id = get_speaker_id(user_id);
+    let speaker_id = STATE_DB.get_speaker_id(user_id);
     let speakers = voicevox::get_speakers();
 
     for speaker in &speakers {

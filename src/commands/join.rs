@@ -30,30 +30,41 @@ pub async fn run(ctx: &Context, interaction: ApplicationCommandInteraction) {
         .await
         .expect("Songbird is not initialized.");
 
-    let (handler, success) = manager.join(guild.id, connect_to).await;
+    if let Some(h) = manager.get(guild.id) {
+        if h.lock().await.join(connect_to).await.is_err() {
+            simple_resp_helper(&interaction, ctx, "Failed to rejoin to VC.", true).await;
+            return;
+        }
+    } else {
+        let (h, success) = manager.join(guild.id, connect_to).await;
 
-    if success.is_err() {
-        simple_resp_helper(&interaction, ctx, "Failed to join to VC.", true).await;
-        return;
-    };
+        if success.is_err() {
+            simple_resp_helper(&interaction, ctx, "Failed to join to VC.", true).await;
+            return;
+        };
 
-    simple_resp_helper(
-        &interaction,
-        ctx,
-        &format!("Joined! {}", connect_to.mention()),
-        false,
-    )
-    .await;
-
-    handler.lock().await.add_global_event(
-        CoreEvent::DriverDisconnect.into(),
-        DriverDisconnectNotifier {
-            songbird_manager: manager.clone(),
-        },
-    );
+        h.lock().await.add_global_event(
+            CoreEvent::DriverDisconnect.into(),
+            DriverDisconnectNotifier {
+                songbird_manager: manager,
+            },
+        );
+    }
 
     WATCH_CHANNELS
         .lock()
         .unwrap()
         .insert(guild.id, interaction.channel_id);
+
+    simple_resp_helper(
+        &interaction,
+        ctx,
+        &format!(
+            "Linked! {} <-> {}",
+            interaction.channel_id.mention(),
+            connect_to.mention()
+        ),
+        false,
+    )
+    .await;
 }

@@ -23,6 +23,6 @@ pub async fn run(ctx: &Context, interaction: ApplicationCommandInteraction) {
         return;
     };
 
-    let _: Result<_, _> = handler.lock().await.queue().skip();
+    handler.lock().await.queue().skip().expect("Failed to skip");
     simple_resp_helper(&interaction, ctx, "Skipped!", true).await;
 }

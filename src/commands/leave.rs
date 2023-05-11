@@ -1,5 +1,4 @@
 use crate::commands::simple_resp_helper;
-use crate::WATCH_CHANNELS;
 
 use serenity::{
     builder::CreateApplicationCommand, client::Context,
@@ -19,15 +18,10 @@ pub async fn run(ctx: &Context, interaction: ApplicationCommandInteraction) {
         .await
         .expect("Songbird is not initialized.");
 
-    if manager.get(guild_id).is_some() {
-        manager
-            .remove(guild_id)
-            .await
-            .expect("Failed to remove songbird instance");
-        simple_resp_helper(&interaction, ctx, "Left a voice channel", false).await;
-    } else {
+    let Ok(()) = manager.leave(guild_id).await else {
         simple_resp_helper(&interaction, ctx, "Not in a voice channel", true).await;
-    }
+        return;
+    };
 
-    WATCH_CHANNELS.lock().unwrap().remove(&guild_id);
+    simple_resp_helper(&interaction, ctx, "Leaved!", false).await;
 }

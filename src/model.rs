@@ -1,6 +1,7 @@
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 use serenity::model::prelude::UserId;
-use std::collections::HashMap;
 
 #[derive(Serialize, Deserialize, Debug, Copy, Clone)]
 pub struct UserSettings {

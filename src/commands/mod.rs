@@ -11,6 +11,7 @@ use serenity::{
 pub mod join;
 pub mod leave;
 pub mod skip;
+pub mod speaker;
 
 async fn simple_resp_helper(
     interaction: &ApplicationCommandInteraction,
