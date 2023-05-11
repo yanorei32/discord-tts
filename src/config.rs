@@ -1,8 +1,9 @@
-use anyhow::{anyhow, Result};
-use once_cell::sync::OnceCell;
 use serde::Deserialize;
+use once_cell::sync::Lazy;
 
-static CONFIG: OnceCell<Config> = OnceCell::new();
+pub static CONFIG: Lazy<Config> = Lazy::new(|| {
+    envy::from_env().expect("Failed to load Environment variable")
+});
 
 #[derive(Deserialize, Debug)]
 pub struct Config {
@@ -16,16 +17,4 @@ pub struct Config {
 
 fn default_tmp_path() -> String {
     "/tmp/".to_string()
-}
-
-pub fn init() -> Result<()> {
-    if CONFIG.set(envy::from_env()?).is_err() {
-        return Err(anyhow!("Failed to set CONFIG"));
-    }
-
-    Ok(())
-}
-
-pub fn get() -> &'static Config {
-    CONFIG.get().unwrap()
 }

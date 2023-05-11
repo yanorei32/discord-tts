@@ -8,18 +8,17 @@ use reqwest::header::CONTENT_TYPE;
 use reqwest::Client;
 use uuid::Uuid;
 
-use crate::config;
+use crate::config::CONFIG;
 
 pub mod model;
 
 static SPEAKERS: Lazy<Mutex<Vec<model::Speaker>>> = Lazy::new(|| Mutex::new(Vec::new()));
 
 pub async fn load_speaker_info() {
-    let config = config::get();
     let client = Client::new();
 
     let api_speakers: Vec<model::ApiSpeakers> = client
-        .get(format!("{}/speakers", config.voicevox_host))
+        .get(format!("{}/speakers", CONFIG.voicevox_host))
         .header(CONTENT_TYPE, "application/json")
         .send()
         .await
@@ -32,7 +31,7 @@ pub async fn load_speaker_info() {
         let uuid = api_speaker.speaker_uuid;
 
         let info: model::ApiSpeakerInfo = client
-            .get(format!("{}/speaker_info", config.voicevox_host))
+            .get(format!("{}/speaker_info", CONFIG.voicevox_host))
             .query(&[("speaker_uuid", &uuid)])
             .header(CONTENT_TYPE, "application/json")
             .send()

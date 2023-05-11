@@ -1,11 +1,11 @@
 #![warn(clippy::pedantic)]
 
+mod commands;
 mod config;
-mod handler;
+mod songbird_handler;
 mod interactive_component;
 mod message_filter;
 mod model;
-mod serenity_utils;
 mod voicevox;
 
 use std::collections::HashMap;
@@ -20,7 +20,6 @@ use serenity::{
     async_trait,
     builder::CreateInteractionResponseData,
     client::{Client, Context, EventHandler},
-    framework::StandardFramework,
     model::{
         application::{
             command::{Command, CommandOptionType},
@@ -36,9 +35,9 @@ use uuid::Uuid;
 
 use crate::interactive_component::{CompileWithBuilder, SelectorResponse};
 use crate::model::SpeakerSelector;
-use crate::serenity_utils::check_msg;
+use crate::config::CONFIG;
 
-static CURRENT_TEXT_CHANNEL: Lazy<Mutex<HashMap<GuildId, ChannelId>>> =
+static WATCH_CHANNELS: Lazy<Mutex<HashMap<GuildId, ChannelId>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
 
 static STATE: Lazy<Mutex<model::State>> = Lazy::new(|| {
@@ -52,21 +51,27 @@ struct Handler;
 #[async_trait]
 impl EventHandler for Handler {
     async fn ready(&self, ctx: Context, ready: Ready) {
-        Command::create_global_application_command(&ctx.http, |command| {
-            command
-                .name("speaker")
-                .description("Manage your speaker")
-                .create_option(|option| {
-                    option
-                        .kind(CommandOptionType::SubCommand)
-                        .name("current")
-                        .description("Show your current speaker")
-                })
-                .create_option(|option| {
-                    option
-                        .kind(CommandOptionType::SubCommand)
-                        .name("change")
-                        .description("Change your speaker")
+        Command::set_global_application_commands(&ctx.http, |commands| {
+            commands
+                .create_application_command(|command| commands::join::register(command))
+                .create_application_command(|command| commands::leave::register(command))
+                .create_application_command(|command| commands::skip::register(command))
+                .create_application_command(|command| {
+                    command
+                        .name("speaker")
+                        .description("Manage your speaker")
+                        .create_option(|option| {
+                            option
+                                .kind(CommandOptionType::SubCommand)
+                                .name("current")
+                                .description("Show your current speaker")
+                        })
+                        .create_option(|option| {
+                            option
+                                .kind(CommandOptionType::SubCommand)
+                                .name("change")
+                                .description("Change your speaker")
+                        })
                 })
         })
         .await
@@ -90,14 +95,14 @@ impl EventHandler for Handler {
 
         let manager = songbird::get(&ctx)
             .await
-            .expect("Songbird Voice client placed in at initialisation.")
+            .expect("Songbird Voice client placed in at init.")
             .clone();
 
         let Some(handler) = manager.get(guild_id) else {
             return;
         };
 
-        if CURRENT_TEXT_CHANNEL
+        if WATCH_CHANNELS
             .lock()
             .unwrap()
             .get(&guild_id)
@@ -108,12 +113,10 @@ impl EventHandler for Handler {
 
         let speaker = get_speaker_id(msg.author.id).to_string();
 
-        let c = config::get();
-
         let params = [("text", &content), ("speaker", &speaker)];
         let client = reqwest::Client::new();
         let query = client
-            .post(format!("{}/audio_query", c.voicevox_host))
+            .post(format!("{}/audio_query", CONFIG.voicevox_host))
             .query(&params)
             .send()
             .await
@@ -123,7 +126,7 @@ impl EventHandler for Handler {
 
         let params = [("speaker", &speaker)];
         let audio = client
-            .post(format!("{}/synthesis", c.voicevox_host))
+            .post(format!("{}/synthesis", CONFIG.voicevox_host))
             .query(&params)
             .header(CONTENT_TYPE, "application/json")
             .body(query)
@@ -132,7 +135,7 @@ impl EventHandler for Handler {
             .expect("Failed to create audio query");
 
         let uuid = Uuid::new_v4().to_string();
-        let path = Path::new(&c.tmp_path).join(&uuid);
+        let path = Path::new(&CONFIG.tmp_path).join(&uuid);
 
         let mut output = File::create(&path).expect("Failed to create file");
         let audio = audio.bytes().await.expect("Failed to read resp");
@@ -143,7 +146,6 @@ impl EventHandler for Handler {
             Ok(source) => source,
             Err(why) => {
                 println!("Err starting source: {why:?}");
-                check_msg(msg.reply(ctx, "Error sourcing ffmpeg").await);
                 return;
             }
         };
@@ -153,7 +155,7 @@ impl EventHandler for Handler {
         audio_handle
             .add_event(
                 Event::Track(TrackEvent::End),
-                handler::songbird_event::ReadEndNotifier {
+                songbird_handler::ReadEndNotifier {
                     temporary_filename: path,
                 },
             )
@@ -203,6 +205,9 @@ impl EventHandler for Handler {
                         _ => unreachable!(),
                     },
                 },
+                "join" => commands::join::run(&ctx, command).await,
+                "leave" => commands::leave::run(&ctx, command).await,
+                "skip" => commands::skip::run(&ctx, command).await,
                 _ => unreachable!("Unknown command: {}", command.data.name),
             },
             Interaction::MessageComponent(interaction) => {
@@ -287,25 +292,16 @@ impl EventHandler for Handler {
 async fn main() {
     tracing_subscriber::fmt::init();
 
-    config::init().expect("Failed to initialize configuration");
-
     load_state();
     voicevox::load_speaker_info().await;
-
-    let framework = StandardFramework::new()
-        .configure(|c| c.prefix("~"))
-        .group(&handler::legacy_command::GENERAL_GROUP);
-
-    let c = config::get();
 
     let intents = GatewayIntents::GUILDS
         | GatewayIntents::GUILD_VOICE_STATES
         | GatewayIntents::GUILD_MESSAGES
         | GatewayIntents::MESSAGE_CONTENT;
 
-    let mut client = Client::builder(&c.discord_token, intents)
+    let mut client = Client::builder(&config::CONFIG.discord_token, intents)
         .event_handler(Handler)
-        .framework(framework)
         .register_songbird()
         .await
         .expect("Failed to create client");
@@ -325,9 +321,7 @@ async fn main() {
 }
 
 fn save_state() {
-    let c = config::get();
-
-    let mut f = File::create(&c.state_path).expect("Unable to open file.");
+    let mut f = File::create(&CONFIG.state_path).expect("Unable to open file.");
 
     let s = STATE.lock().unwrap();
     f.write_all(
@@ -339,9 +333,7 @@ fn save_state() {
 }
 
 fn load_state() {
-    let c = config::get();
-
-    match File::open(&c.state_path) {
+    match File::open(&CONFIG.state_path) {
         Ok(f) => {
             let reader = BufReader::new(f);
             let mut s = STATE.lock().unwrap();

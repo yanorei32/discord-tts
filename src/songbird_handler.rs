@@ -13,15 +13,12 @@ pub struct DriverDisconnectNotifier {
 impl VoiceEventHandler for DriverDisconnectNotifier {
     async fn act(&self, ctx: &EventContext<'_>) -> Option<Event> {
         if let EventContext::DriverDisconnect(ctx) = ctx {
-            let guild_id = ctx.guild_id;
             let manager = &self.songbird_manager;
-            let has_handler = manager.get(guild_id).is_some();
-
             println!("Force disconnected");
 
-            if has_handler {
+            if manager.get(ctx.guild_id).is_some() {
                 manager
-                    .remove(guild_id)
+                    .remove(ctx.guild_id)
                     .await
                     .expect("Failed to remove from manager");
             }
@@ -40,6 +37,7 @@ impl VoiceEventHandler for ReadEndNotifier {
         if let EventContext::Track(_) = ctx {
             fs::remove_file(&self.temporary_filename).expect("Failed to remove temporary file");
         }
+
         None
     }
 }
