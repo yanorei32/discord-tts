@@ -1,8 +1,22 @@
+use regex::Regex;
+use std::borrow::Cow;
+use once_cell::sync::Lazy;
+
+static CODEBLOCK_REGEX: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"(?m)```.+```").unwrap()
+});
+
+static URI_REGEX: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"\S+:\S+").unwrap()
+});
+
 pub fn filter(mes: &str) -> Option<String> {
     let mes = remove_command_like_string(mes)?;
     let mes = legacy_ping_command_compatibility(mes)?;
     let mes = suppress_by_semicolon(mes)?;
-    let mes = suppress_whitespaces(mes)?;
+    let mes = replace_uri(mes);
+    let mes = replace_codeblock(&mes);
+    let mes = suppress_whitespaces(&mes)?;
     Some(mes.to_string())
 }
 
@@ -36,4 +50,12 @@ fn suppress_whitespaces(mes: &str) -> Option<&str> {
     } else {
         Some(mes)
     }
+}
+
+fn replace_uri<'t>(mes: &'t str) -> Cow<'t, str> {
+    URI_REGEX.replace_all(mes, "。URI省略。")
+}
+
+fn replace_codeblock<'t>(mes: &'t str) -> Cow<'t, str> {
+    CODEBLOCK_REGEX.replace_all(mes, "。コード省略。")
 }
