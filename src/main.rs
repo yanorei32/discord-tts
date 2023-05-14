@@ -3,15 +3,15 @@
 mod commands;
 mod config;
 mod db;
+mod filter;
 mod interactive_component;
-mod message_filter;
 mod model;
 mod songbird_handler;
 mod voicevox;
 
 use std::collections::HashMap;
 use std::fs::File;
-use std::io;
+use std::io::{self, Cursor};
 use std::path::Path;
 use std::sync::Mutex;
 
@@ -19,25 +19,20 @@ use once_cell::sync::Lazy;
 use reqwest::header::CONTENT_TYPE;
 use serenity::{
     async_trait,
-    builder::CreateInteractionResponseData,
     client::{Client, Context, EventHandler},
     model::{
-        application::{
-            command::Command,
-            interaction::{Interaction, InteractionResponseType},
-        },
-        channel::{AttachmentType::Bytes, Message},
+        application::{command::Command, interaction::Interaction},
+        channel::Message,
         gateway::Ready,
-        prelude::{ChannelId, GatewayIntents, GuildId, UserId},
+        prelude::{ChannelId, GatewayIntents, GuildId},
     },
 };
 use songbird::{ffmpeg, tracks::create_player, Event, SerenityInit, TrackEvent};
 use uuid::Uuid;
 
 use crate::config::CONFIG;
-use crate::interactive_component::{CompileWithBuilder, SelectorResponse};
-use crate::model::SpeakerSelector;
 use crate::db::STATE_DB;
+use crate::model::SpeakerSelector;
 
 static WATCH_CHANNELS: Lazy<Mutex<HashMap<GuildId, ChannelId>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
@@ -61,15 +56,7 @@ impl EventHandler for Handler {
     }
 
     async fn message(&self, ctx: Context, msg: Message) {
-        if msg.author.bot {
-            return;
-        }
-
-        let Some(guild_id) = msg.guild_id else {
-            return;
-        };
-
-        let Some(content) = message_filter::filter(&msg.content) else {
+        let Some(content) = filter::filter(&ctx, &msg).await else {
             return;
         };
 
@@ -77,22 +64,21 @@ impl EventHandler for Handler {
             .await
             .expect("Songbird is not initialized");
 
-        let Some(handler) = manager.get(guild_id) else {
+        let Some(handler) = manager.get(msg.guild_id.unwrap()) else {
             return;
         };
 
         if WATCH_CHANNELS
             .lock()
             .unwrap()
-            .get(&guild_id)
+            .get(&msg.guild_id.unwrap())
             .map_or(true, |id| id != &msg.channel_id)
         {
             return;
         }
 
-        let speaker = STATE_DB.get_speaker_id(msg.author.id).to_string();
-
-        let params = [("text", &content), ("speaker", &speaker)];
+        let speaker = STATE_DB.get_speaker_id(msg.author.id);
+        let params = [("text", &content), ("speaker", &speaker.to_string())];
         let client = reqwest::Client::new();
         let query = client
             .post(format!("{}/audio_query", CONFIG.voicevox_host))
@@ -118,7 +104,7 @@ impl EventHandler for Handler {
 
         let mut output = File::create(&path).expect("Failed to create file");
         let audio = audio.bytes().await.expect("Failed to read resp");
-        let mut response_cursor = std::io::Cursor::new(audio);
+        let mut response_cursor = Cursor::new(audio);
         io::copy(&mut response_cursor, &mut output).expect("Failed to write file");
 
         let source = match ffmpeg(&path).await {
@@ -153,66 +139,7 @@ impl EventHandler for Handler {
                 _ => unreachable!("Unknown command: {}", command.data.name),
             },
             Interaction::MessageComponent(interaction) => {
-                if interaction.data.custom_id.contains("select_style") {
-                    interaction
-                        .create_interaction_response(&ctx.http, |response| {
-                            let style_id: String =
-                                interaction.data.custom_id.chars().skip(13).collect();
-                            let style_id: u8 = style_id.parse().unwrap();
-
-                            STATE_DB.store_speaker_id(interaction.user.id, style_id);
-
-                            response
-                                .kind(InteractionResponseType::UpdateMessage)
-                                .interaction_response_data(|message| {
-                                    build_current_speaker_response(message, interaction.user.id);
-                                    message.components(|components| components)
-                                })
-                        })
-                        .await
-                        .expect("Failed to create response");
-                } else if interaction.data.custom_id.contains("speaker") {
-                    interaction
-                        .create_interaction_response(&ctx.http, |response| {
-                            let values = &interaction.data.values;
-                            let index: usize = values.get(0).unwrap().parse().unwrap();
-
-                            response
-                                .kind(InteractionResponseType::UpdateMessage)
-                                .interaction_response_data(|message| {
-                                    build_speaker_selector_response(
-                                        message,
-                                        SpeakerSelector::SpeakerOnly { speaker: index },
-                                    );
-                                    message
-                                })
-                        })
-                        .await
-                        .expect("Failed to create response");
-                } else if interaction.data.custom_id.contains("style") {
-                    interaction
-                        .create_interaction_response(&ctx.http, |response| {
-                            let values = &interaction.data.values;
-                            let indices: Vec<&str> = values.get(0).unwrap().split('_').collect();
-                            let speaker_index: usize = indices.first().unwrap().parse().unwrap();
-                            let style_index: usize = indices.get(1).unwrap().parse().unwrap();
-
-                            response
-                                .kind(InteractionResponseType::UpdateMessage)
-                                .interaction_response_data(|message| {
-                                    build_speaker_selector_response(
-                                        message,
-                                        SpeakerSelector::SpeakerAndStyle {
-                                            speaker: speaker_index,
-                                            style: style_index,
-                                        },
-                                    );
-                                    message
-                                })
-                        })
-                        .await
-                        .expect("Failed to create response");
-                }
+                commands::speaker::update(&ctx, interaction).await;
             }
             _ => {}
         }
@@ -248,105 +175,4 @@ async fn main() {
         .expect("Failed to wait Ctrl+C");
 
     println!("Received Ctrl+C, shutting down.");
-}
-
-fn build_current_speaker_response(message: &mut CreateInteractionResponseData, user_id: UserId) {
-    let speaker_id = STATE_DB.get_speaker_id(user_id);
-    let speakers = voicevox::get_speakers();
-
-    for speaker in &speakers {
-        if let Some(style) = speaker
-            .styles
-            .iter()
-            .find(|style| style.id == u32::from(speaker_id))
-        {
-            message
-                .add_file(Bytes {
-                    data: style.icon.clone(),
-                    filename: "icon.png".to_string(),
-                })
-                .embed(|embed| {
-                    embed
-                        .author(|author| author.name("Speaker currently in use"))
-                        .thumbnail("attachment://icon.png")
-                        .fields([
-                            ("Speaker name", &speaker.name, false),
-                            ("Style", &style.name, true),
-                            ("id", &style.id.to_string(), true),
-                        ])
-                })
-                .ephemeral(true);
-            break;
-        }
-    }
-}
-
-fn build_speaker_selector_response(
-    message: &mut CreateInteractionResponseData,
-    selector: SpeakerSelector,
-) {
-    let speakers = voicevox::get_speakers();
-
-    let message = match selector {
-        SpeakerSelector::SpeakerAndStyle {
-            speaker: speaker_index,
-            style,
-        } => {
-            let speaker = speakers.get(speaker_index).unwrap();
-            let style = speaker.styles.get(style).unwrap();
-
-            message.add_file(Bytes {
-                data: style.icon.clone(),
-                filename: "thumbnail.png".to_string(),
-            });
-
-            style
-                .samples
-                .iter()
-                .enumerate()
-                .fold(message, |m, (i, sample)| {
-                    m.add_file(Bytes {
-                        data: sample.clone(),
-                        filename: format!("sample{i}.wav"),
-                    })
-                })
-        }
-        SpeakerSelector::SpeakerOnly { speaker: index } => {
-            let speaker = speakers.get(index).unwrap();
-
-            message.add_file(Bytes {
-                data: speaker.portrait.clone(),
-                filename: "thumbnail.png".to_string(),
-            })
-        }
-        SpeakerSelector::None => message,
-    };
-
-    if let Some(speaker_index) = selector.speaker() {
-        let speaker = speakers.get(speaker_index).unwrap();
-
-        message.embed(|embed| {
-            embed
-                .author(|author| author.name("Select speaker you want to use"))
-                .thumbnail("attachment://thumbnail.png")
-                .field("Name", &speaker.name, true);
-
-            let style = selector.style().map(|a| speaker.styles.get(a).unwrap());
-            embed.fields([
-                (
-                    "Style",
-                    style.map_or_else(|| "-".to_string(), |s| s.name.clone()),
-                    true,
-                ),
-                (
-                    "ID",
-                    style.map_or_else(|| "-".to_string(), |s| s.id.to_string()),
-                    true,
-                ),
-                ("Policy", speaker.policy.clone(), false),
-            ])
-        });
-    }
-
-    SelectorResponse::default().build((speakers, selector), message);
 }
