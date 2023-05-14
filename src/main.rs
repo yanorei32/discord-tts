@@ -107,12 +107,9 @@ impl EventHandler for Handler {
         let mut response_cursor = Cursor::new(audio);
         io::copy(&mut response_cursor, &mut output).expect("Failed to write file");
 
-        let source = match ffmpeg(&path).await {
-            Ok(source) => source,
-            Err(why) => {
-                println!("Err starting source: {why:?}");
-                return;
-            }
+        let Ok(source) = ffmpeg(&path).await else {
+            println!("Err starting source");
+            return;
         };
 
         let (audio, audio_handle) = create_player(source);

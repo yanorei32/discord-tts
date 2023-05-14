@@ -14,21 +14,25 @@ pub struct DriverDisconnectNotifier {
 #[async_trait]
 impl VoiceEventHandler for DriverDisconnectNotifier {
     async fn act(&self, ctx: &EventContext<'_>) -> Option<Event> {
-        if let EventContext::DriverDisconnect(ctx) = ctx {
-            let manager = &self.songbird_manager;
+        let EventContext::DriverDisconnect(ctx) = ctx else {
+            return None;
+        };
 
-            println!("FINALIZE!");
-
-            WATCH_CHANNELS
-                .lock()
-                .unwrap()
-                .remove(&ctx.guild_id.0.into());
-
-            manager
-                .remove(ctx.guild_id)
-                .await
-                .expect("Failed to remove from manager");
+        if ctx.reason.is_some() {
+            return None;
         }
+
+        let manager = &self.songbird_manager;
+
+        WATCH_CHANNELS
+            .lock()
+            .unwrap()
+            .remove(&ctx.guild_id.0.into());
+
+        manager
+            .remove(ctx.guild_id)
+            .await
+            .expect("Failed to remove from manager");
 
         None
     }
