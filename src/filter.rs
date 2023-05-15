@@ -18,11 +18,9 @@ pub async fn filter<T>(ctx: T, mes: &'_ Message) -> Option<String>
 where
     T: CacheHttp + AsRef<Cache>,
 {
-    if mes.author.bot {
-        return None;
-    }
+    mes.guild_id?;
 
-    if mes.guild_id.is_none() {
+    if mes.author.bot {
         return None;
     }
 
@@ -34,6 +32,7 @@ where
     let s = replace_uri(&s);
     let s = replace_codeblock(&s);
     let s = suppress_whitespaces(&s)?;
+
     Some(s.to_string())
 }
 
@@ -58,9 +57,7 @@ where
     for m in &mes.mention_roles {
         let re = Regex::new(&m.mention().to_string()).unwrap();
         let name = m.to_role_cached(&ctx).unwrap().name;
-        s = re
-            .replace_all(&s, format!("。宛、{name}。"))
-            .to_string();
+        s = re.replace_all(&s, format!("。宛、{name}。")).to_string();
     }
 
     let channel_mentions: Vec<ChannelId> = CHANNEL_MENTION_REGEX
@@ -78,30 +75,62 @@ where
     s
 }
 
+#[inline]
 fn legacy_command_compatibility(mes: &str) -> Option<&str> {
     (!mes.starts_with('~')).then_some(mes)
 }
 
+#[inline]
 fn legacy_ping_command_compatibility(mes: &str) -> Option<&str> {
     (mes != "ping").then_some(mes)
 }
 
+#[inline]
 fn suppress_by_semicolon(mes: &str) -> Option<&str> {
     (!mes.starts_with(';') || mes.starts_with(";;")).then_some(mes)
 }
 
+#[inline]
 fn suppress_whitespaces(mes: &str) -> Option<&str> {
     (!mes.trim().is_empty()).then_some(mes)
 }
 
+#[inline]
 fn replace_uri(mes: &str) -> Cow<'_, str> {
     URI_REGEX.replace_all(mes, "。URI省略。")
 }
 
+#[inline]
 fn replace_emoji(mes: &str) -> Cow<'_, str> {
     EMOJI_REGEX.replace_all(mes, "")
 }
 
+#[inline]
 fn replace_codeblock(mes: &str) -> Cow<'_, str> {
     CODEBLOCK_REGEX.replace_all(mes, "。コード省略。")
+}
+
+#[test]
+fn replace_rule_unit_test() {
+    assert_eq!(legacy_command_compatibility("~join"), None);
+    assert_eq!(legacy_command_compatibility("hello"), Some("hello"));
+
+    assert_eq!(legacy_ping_command_compatibility("ping"), None);
+    assert_eq!(legacy_ping_command_compatibility("hello"), Some("hello"));
+
+    assert_eq!(suppress_by_semicolon("hello"), Some("hello"));
+    assert_eq!(suppress_by_semicolon(";hello"), None);
+    assert_eq!(suppress_by_semicolon(";;hello"), Some(";;hello"));
+
+    assert_eq!(replace_uri("hello"), "hello");
+    assert_eq!(replace_uri("ms-settings:privacy-microphone"), "。URI省略。");
+    assert_eq!(replace_uri("そこから ms-settings:privacy-microphone を開いて"), "そこから 。URI省略。 を開いて");
+    assert_eq!(replace_uri("そこから http://metaba.su を開いて"), "そこから 。URI省略。 を開いて");
+
+    assert_eq!(replace_emoji("hello!"), "hello!");
+    assert_eq!(replace_emoji("hello:emoji:!"), "hello!");
+    assert_eq!(replace_emoji("hello<:emoji:012345678901234567>!"), "hello!");
+
+    assert_eq!(replace_codeblock("Codeblock ```Inline``` !"), "Codeblock 。コード省略。 !");
+    assert_eq!(replace_codeblock("Codeblock\n```\nMultiline\n```\n!"), "Codeblock\n。コード省略。\n!");
 }
