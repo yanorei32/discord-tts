@@ -10,7 +10,7 @@ pub static CONFIG: Lazy<Config> =
 pub struct Config {
     pub voicevox_host: String,
     pub discord_token: String,
-    pub state_path: PathBuf,
+    pub persistent_path: PathBuf,
 
     #[serde(default = "default_tmp_path")]
     pub tmp_path: PathBuf,

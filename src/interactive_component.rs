@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 use serenity::builder::{CreateButton, CreateComponents, CreateInteractionResponseData, CreateSelectMenu};
 use serenity::model::application::component::ButtonStyle;
 use tap::Pipe;
-use crate::SpeakerSelector;
+use crate::model::SpeakerSelector;
 use crate::voicevox::model::Speaker;
 
 /// コンポーネントの依存性を分離して親子関係を明確にするためのトレイト

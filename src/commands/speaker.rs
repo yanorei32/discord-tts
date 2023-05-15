@@ -1,4 +1,4 @@
-use crate::db::STATE_DB;
+use crate::db::PERSISTENT_DB;
 use crate::interactive_component::{CompileWithBuilder, SelectorResponse};
 use crate::model::SpeakerSelector;
 use crate::voicevox;
@@ -67,7 +67,7 @@ pub async fn update(ctx: &Context, interaction: MessageComponentInteraction) {
         interaction
             .create_interaction_response(&ctx.http, |response| {
                 let id = interaction.data.custom_id.rsplit_once('_').unwrap().1;
-                STATE_DB.store_speaker_id(interaction.user.id, id.parse().unwrap());
+                PERSISTENT_DB.store_speaker_id(interaction.user.id, id.parse().unwrap());
 
                 response
                     .kind(InteractionResponseType::UpdateMessage)
@@ -123,7 +123,7 @@ pub async fn update(ctx: &Context, interaction: MessageComponentInteraction) {
 }
 
 fn build_current_speaker_response(message: &mut CreateInteractionResponseData, user_id: UserId) {
-    let speaker_id = STATE_DB.get_speaker_id(user_id);
+    let speaker_id = PERSISTENT_DB.get_speaker_id(user_id);
     let speakers = voicevox::get_speakers();
 
     let (name, style) = speakers

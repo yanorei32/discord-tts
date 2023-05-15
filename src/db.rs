@@ -8,20 +8,21 @@ use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use serenity::model::prelude::UserId;
 
-pub static STATE_DB: Lazy<StateDB> =
-    Lazy::new(|| StateDB::new(&crate::config::CONFIG.state_path).expect("Failed to initialize DB"));
+pub static PERSISTENT_DB: Lazy<PersistentDB> = Lazy::new(|| {
+    PersistentDB::new(&crate::config::CONFIG.persistent_path).expect("Failed to initialize DB")
+});
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct StateStructure {
+struct PersistentStructure {
     voice_settings: HashMap<UserId, u8>,
 }
 
-pub struct StateDB {
+pub struct PersistentDB {
     file: PathBuf,
-    data: RwLock<StateStructure>,
+    data: RwLock<PersistentStructure>,
 }
 
-impl StateDB {
+impl PersistentDB {
     pub fn new(file: &Path) -> Result<Self, std::io::Error> {
         let file = file.into();
         let data =
@@ -41,7 +42,9 @@ impl StateDB {
     }
 
     pub fn store_speaker_id(&self, user: UserId, speaker_id: u8) {
-        self.data.write().unwrap()
+        self.data
+            .write()
+            .unwrap()
             .voice_settings
             .insert(user, speaker_id);
 

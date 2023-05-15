@@ -31,8 +31,7 @@ use songbird::{ffmpeg, tracks::create_player, Event, SerenityInit, TrackEvent};
 use uuid::Uuid;
 
 use crate::config::CONFIG;
-use crate::db::STATE_DB;
-use crate::model::SpeakerSelector;
+use crate::db::PERSISTENT_DB;
 
 static WATCH_CHANNELS: Lazy<Mutex<HashMap<GuildId, ChannelId>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
@@ -77,7 +76,7 @@ impl EventHandler for Handler {
             return;
         }
 
-        let speaker = STATE_DB.get_speaker_id(msg.author.id);
+        let speaker = PERSISTENT_DB.get_speaker_id(msg.author.id);
         let params = [("text", &content), ("speaker", &speaker.to_string())];
         let client = reqwest::Client::new();
         let query = client
