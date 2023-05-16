@@ -6,7 +6,7 @@ use std::sync::RwLock;
 
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
-use serenity::model::prelude::UserId;
+use serenity::model::prelude::{ChannelId, GuildId, UserId};
 
 pub static PERSISTENT_DB: Lazy<PersistentDB> = Lazy::new(|| {
     PersistentDB::new(&crate::config::CONFIG.persistent_path).expect("Failed to initialize DB")
@@ -23,12 +23,14 @@ pub struct PersistentDB {
 }
 
 impl PersistentDB {
-    pub fn new(file: &Path) -> Result<Self, std::io::Error> {
-        let file = file.into();
+    fn new(file: &Path) -> Result<Self, std::io::Error> {
         let data =
             serde_json::from_reader(BufReader::new(File::open(&file)?)).expect("DB is corrupt");
 
-        Ok(Self { file, data })
+        Ok(Self {
+            file: file.into(),
+            data,
+        })
     }
 
     pub fn get_speaker_id(&self, user: UserId) -> u8 {
@@ -60,5 +62,46 @@ impl PersistentDB {
                     .as_bytes(),
             )
             .expect("Failed to write file.");
+    }
+}
+
+struct InmemoryStructure {
+    instances: HashMap<GuildId, ChannelId>,
+}
+
+pub struct InmemoryDB {
+    data: RwLock<InmemoryStructure>,
+}
+
+pub static INMEMORY_DB: Lazy<InmemoryDB> = Lazy::new(|| InmemoryDB::new());
+
+impl InmemoryDB {
+    fn new() -> Self {
+        Self {
+            data: RwLock::new(InmemoryStructure {
+                instances: HashMap::new(),
+            }),
+        }
+    }
+
+    pub fn get_instance(&self, guild_id: GuildId) -> Option<ChannelId> {
+        self.data
+            .read()
+            .unwrap()
+            .instances
+            .get(&guild_id)
+            .map(|v| v.to_owned())
+    }
+
+    pub fn store_instance(&self, guild_id: GuildId, channel_id: ChannelId) {
+        self.data
+            .write()
+            .unwrap()
+            .instances
+            .insert(guild_id, channel_id);
+    }
+
+    pub fn destroy_instance(&self, guild_id: GuildId) {
+        self.data.write().unwrap().instances.remove(&guild_id);
     }
 }

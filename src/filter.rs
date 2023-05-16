@@ -9,6 +9,8 @@ use serenity::{
     prelude::Mentionable,
 };
 
+use crate::db::INMEMORY_DB;
+
 static CODEBLOCK_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?sm)```.+```").unwrap());
 static EMOJI_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"(<:\w+:\d{18}>|:\w+:)").unwrap());
 static URI_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"\S+:\S+").unwrap());
@@ -18,7 +20,9 @@ pub async fn filter<T>(ctx: T, mes: &'_ Message) -> Option<String>
 where
     T: CacheHttp + AsRef<Cache>,
 {
-    mes.guild_id?;
+    if mes.channel_id != INMEMORY_DB.get_instance(mes.guild_id?)? {
+        return None;
+    };
 
     if mes.author.bot {
         return None;
@@ -124,13 +128,25 @@ fn replace_rule_unit_test() {
 
     assert_eq!(replace_uri("hello"), "hello");
     assert_eq!(replace_uri("ms-settings:privacy-microphone"), "。URI省略。");
-    assert_eq!(replace_uri("そこから ms-settings:privacy-microphone を開いて"), "そこから 。URI省略。 を開いて");
-    assert_eq!(replace_uri("そこから http://metaba.su を開いて"), "そこから 。URI省略。 を開いて");
+    assert_eq!(
+        replace_uri("そこから ms-settings:privacy-microphone を開いて"),
+        "そこから 。URI省略。 を開いて"
+    );
+    assert_eq!(
+        replace_uri("そこから http://metaba.su を開いて"),
+        "そこから 。URI省略。 を開いて"
+    );
 
     assert_eq!(replace_emoji("hello!"), "hello!");
     assert_eq!(replace_emoji("hello:emoji:!"), "hello!");
     assert_eq!(replace_emoji("hello<:emoji:012345678901234567>!"), "hello!");
 
-    assert_eq!(replace_codeblock("Codeblock ```Inline``` !"), "Codeblock 。コード省略。 !");
-    assert_eq!(replace_codeblock("Codeblock\n```\nMultiline\n```\n!"), "Codeblock\n。コード省略。\n!");
+    assert_eq!(
+        replace_codeblock("Codeblock ```Inline``` !"),
+        "Codeblock 。コード省略。 !"
+    );
+    assert_eq!(
+        replace_codeblock("Codeblock\n```\nMultiline\n```\n!"),
+        "Codeblock\n。コード省略。\n!"
+    );
 }

@@ -9,13 +9,10 @@ mod model;
 mod songbird_handler;
 mod voicevox;
 
-use std::collections::HashMap;
 use std::fs::File;
 use std::io::{self, Cursor};
 use std::path::Path;
-use std::sync::Mutex;
 
-use once_cell::sync::Lazy;
 use reqwest::header::CONTENT_TYPE;
 use serenity::{
     async_trait,
@@ -24,7 +21,7 @@ use serenity::{
         application::{command::Command, interaction::Interaction},
         channel::Message,
         gateway::Ready,
-        prelude::{ChannelId, GatewayIntents, GuildId},
+        prelude::GatewayIntents,
     },
 };
 use songbird::{ffmpeg, tracks::create_player, Event, SerenityInit, TrackEvent};
@@ -32,9 +29,6 @@ use uuid::Uuid;
 
 use crate::config::CONFIG;
 use crate::db::PERSISTENT_DB;
-
-static WATCH_CHANNELS: Lazy<Mutex<HashMap<GuildId, ChannelId>>> =
-    Lazy::new(|| Mutex::new(HashMap::new()));
 
 struct Handler;
 
@@ -58,23 +52,6 @@ impl EventHandler for Handler {
         let Some(content) = filter::filter(&ctx, &msg).await else {
             return;
         };
-
-        let manager = songbird::get(&ctx)
-            .await
-            .expect("Songbird is not initialized");
-
-        let Some(handler) = manager.get(msg.guild_id.unwrap()) else {
-            return;
-        };
-
-        if WATCH_CHANNELS
-            .lock()
-            .unwrap()
-            .get(&msg.guild_id.unwrap())
-            .map_or(true, |id| id != &msg.channel_id)
-        {
-            return;
-        }
 
         let speaker = PERSISTENT_DB.get_speaker_id(msg.author.id);
         let params = [("text", &content), ("speaker", &speaker.to_string())];
@@ -122,6 +99,11 @@ impl EventHandler for Handler {
             )
             .expect("Failed to create queue");
 
+        let manager = songbird::get(&ctx)
+            .await
+            .expect("Songbird is not initialized");
+
+        let handler = manager.get(msg.guild_id.unwrap()).unwrap();
         handler.lock().await.enqueue(audio);
     }
 

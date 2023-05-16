@@ -1,6 +1,6 @@
 use crate::commands::simple_resp_helper;
+use crate::db::INMEMORY_DB;
 use crate::songbird_handler::DriverDisconnectNotifier;
-use crate::WATCH_CHANNELS;
 
 use serenity::{
     builder::CreateApplicationCommand,
@@ -51,10 +51,7 @@ pub async fn run(ctx: &Context, interaction: ApplicationCommandInteraction) {
         );
     }
 
-    WATCH_CHANNELS
-        .lock()
-        .unwrap()
-        .insert(guild.id, interaction.channel_id);
+    INMEMORY_DB.store_instance(guild.id, interaction.channel_id);
 
     simple_resp_helper(
         &interaction,

@@ -5,7 +5,7 @@ use std::sync::Arc;
 use serenity::async_trait;
 use songbird::{Event, EventContext, EventHandler as VoiceEventHandler, Songbird};
 
-use crate::WATCH_CHANNELS;
+use crate::db::INMEMORY_DB;
 
 pub struct DriverDisconnectNotifier {
     pub songbird_manager: Arc<Songbird>,
@@ -22,14 +22,9 @@ impl VoiceEventHandler for DriverDisconnectNotifier {
             return None;
         }
 
-        let manager = &self.songbird_manager;
+        INMEMORY_DB.destroy_instance(ctx.guild_id.0.into());
 
-        WATCH_CHANNELS
-            .lock()
-            .unwrap()
-            .remove(&ctx.guild_id.0.into());
-
-        manager
+        self.songbird_manager
             .remove(ctx.guild_id)
             .await
             .expect("Failed to remove from manager");
