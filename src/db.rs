@@ -25,7 +25,7 @@ pub struct PersistentDB {
 impl PersistentDB {
     fn new(file: &Path) -> Result<Self, std::io::Error> {
         let data =
-            serde_json::from_reader(BufReader::new(File::open(&file)?)).expect("DB is corrupt");
+            serde_json::from_reader(BufReader::new(File::open(file)?)).expect("DB is corrupt");
 
         Ok(Self {
             file: file.into(),
@@ -73,7 +73,7 @@ pub struct InmemoryDB {
     data: RwLock<InmemoryStructure>,
 }
 
-pub static INMEMORY_DB: Lazy<InmemoryDB> = Lazy::new(|| InmemoryDB::new());
+pub static INMEMORY_DB: Lazy<InmemoryDB> = Lazy::new(InmemoryDB::new);
 
 impl InmemoryDB {
     fn new() -> Self {
@@ -90,7 +90,7 @@ impl InmemoryDB {
             .unwrap()
             .instances
             .get(&guild_id)
-            .map(|v| v.to_owned())
+            .map(ToOwned::to_owned)
     }
 
     pub fn store_instance(&self, guild_id: GuildId, channel_id: ChannelId) {
