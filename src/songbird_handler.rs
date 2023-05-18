@@ -23,11 +23,7 @@ impl VoiceEventHandler for DriverDisconnectNotifier {
         }
 
         INMEMORY_DB.destroy_instance(ctx.guild_id.0.into());
-
-        self.songbird_manager
-            .remove(ctx.guild_id)
-            .await
-            .expect("Failed to remove from manager");
+        self.songbird_manager.remove(ctx.guild_id).await.unwrap();
 
         None
     }

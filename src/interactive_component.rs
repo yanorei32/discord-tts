@@ -1,7 +1,11 @@
 use std::marker::PhantomData;
-use serenity::builder::{CreateButton, CreateComponents, CreateInteractionResponseData, CreateSelectMenu};
-use serenity::model::application::component::ButtonStyle;
+
+use serenity::{
+    builder::{CreateButton, CreateComponents, CreateInteractionResponseData, CreateSelectMenu},
+    model::application::component::ButtonStyle,
+};
 use tap::Pipe;
+
 use crate::model::SpeakerSelector;
 use crate::voicevox::model::Speaker;
 
@@ -13,7 +17,11 @@ pub trait CompileWithBuilder {
     type Parameters: Sized;
     /// 親のビルダー。
     type ParentBuilder: Sized;
-    fn build(self, params: Self::Parameters, parent: &mut Self::ParentBuilder) -> &mut Self::ParentBuilder;
+    fn build(
+        self,
+        params: Self::Parameters,
+        parent: &mut Self::ParentBuilder,
+    ) -> &mut Self::ParentBuilder;
 }
 
 macro_rules! rows {
@@ -33,9 +41,19 @@ impl<'a> CompileWithBuilder for SelectorResponse<'a> {
     type Parameters = (Vec<Speaker<'a>>, SpeakerSelector);
     type ParentBuilder = CreateInteractionResponseData<'a>;
 
-    fn build(self, t: Self::Parameters, parent: &mut Self::ParentBuilder) -> &mut Self::ParentBuilder {
+    fn build(
+        self,
+        t: Self::Parameters,
+        parent: &mut Self::ParentBuilder,
+    ) -> &mut Self::ParentBuilder {
         parent.components(|c| {
-            rows!(c, t, SpeakerSelectionMenu, StyleSelectionMenu, ApplyStyleButton)
+            rows!(
+                c,
+                t,
+                SpeakerSelectionMenu,
+                StyleSelectionMenu,
+                ApplyStyleButton
+            )
         })
     }
 }
@@ -46,7 +64,11 @@ impl<'a> CompileWithBuilder for SpeakerSelectionMenu<'a> {
     type Parameters = (Vec<Speaker<'a>>, SpeakerSelector);
     type ParentBuilder = CreateSelectMenu;
 
-    fn build(self, (speakers, selector): Self::Parameters, parent: &mut Self::ParentBuilder) -> &mut Self::ParentBuilder {
+    fn build(
+        self,
+        (speakers, selector): Self::Parameters,
+        parent: &mut Self::ParentBuilder,
+    ) -> &mut Self::ParentBuilder {
         parent
             .placeholder("Speaker selection")
             .custom_id("speaker")
@@ -71,7 +93,11 @@ impl<'a> CompileWithBuilder for StyleSelectionMenu<'a> {
     type Parameters = (Vec<Speaker<'a>>, SpeakerSelector);
     type ParentBuilder = CreateSelectMenu;
 
-    fn build(self, (speakers, selector): Self::Parameters, menu: &mut Self::ParentBuilder) -> &mut Self::ParentBuilder {
+    fn build(
+        self,
+        (speakers, selector): Self::Parameters,
+        menu: &mut Self::ParentBuilder,
+    ) -> &mut Self::ParentBuilder {
         menu.placeholder("Style selection")
             .custom_id("style")
             .options(|options| {
@@ -79,15 +105,19 @@ impl<'a> CompileWithBuilder for StyleSelectionMenu<'a> {
                 if let Some(index) = selector.speaker() {
                     let speaker = speakers.get(index).unwrap();
 
-                    speaker.styles.iter().enumerate().fold(options, |opts, (i, style)| {
-                        opts.create_option(|option| {
-                            option
-                                .description("")
-                                .label(&style.name)
-                                .value(format!("{index}_{i}"))
-                                .default_selection(selector.style() == Some(i))
+                    speaker
+                        .styles
+                        .iter()
+                        .enumerate()
+                        .fold(options, |opts, (i, style)| {
+                            opts.create_option(|option| {
+                                option
+                                    .description("")
+                                    .label(&style.name)
+                                    .value(format!("{index}_{i}"))
+                                    .default_selection(selector.style() == Some(i))
+                            })
                         })
-                    })
                 } else {
                     options.create_option(|option| {
                         option
@@ -107,7 +137,11 @@ impl<'a> CompileWithBuilder for ApplyStyleButton<'a> {
     type Parameters = (Vec<Speaker<'a>>, SpeakerSelector);
     type ParentBuilder = CreateButton;
 
-    fn build(self, (speakers, selector): Self::Parameters, button: &mut Self::ParentBuilder) -> &mut Self::ParentBuilder {
+    fn build(
+        self,
+        (speakers, selector): Self::Parameters,
+        button: &mut Self::ParentBuilder,
+    ) -> &mut Self::ParentBuilder {
         button
             .style(ButtonStyle::Success)
             .label("Select this style");
@@ -126,18 +160,26 @@ impl<'a> CompileWithBuilder for ApplyStyleButton<'a> {
     }
 }
 
-struct GenericRow<T: CompileWithBuilder<Parameters=P,ParentBuilder=CreationBuilder>, P, CreationBuilder>(T);
+struct GenericRow<
+    T: CompileWithBuilder<Parameters = P, ParentBuilder = CreationBuilder>,
+    P,
+    CreationBuilder,
+>(T);
 
 macro_rules! gen_row {
     ($pb:ty,$m:ident) => {
-        impl<T: CompileWithBuilder<Parameters=P,ParentBuilder=$pb>, P> CompileWithBuilder for GenericRow<T, P, $pb> {
+        impl<T: CompileWithBuilder<Parameters = P, ParentBuilder = $pb>, P> CompileWithBuilder
+            for GenericRow<T, P, $pb>
+        {
             type Parameters = P;
             type ParentBuilder = CreateComponents;
 
-            fn build(self, params: Self::Parameters, parent: &mut Self::ParentBuilder) -> &mut Self::ParentBuilder {
-                parent.create_action_row(|r| {
-                    r.$m(|m| self.0.build(params, m))
-                })
+            fn build(
+                self,
+                params: Self::Parameters,
+                parent: &mut Self::ParentBuilder,
+            ) -> &mut Self::ParentBuilder {
+                parent.create_action_row(|r| r.$m(|m| self.0.build(params, m)))
             }
         }
     };

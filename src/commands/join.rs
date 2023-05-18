@@ -1,7 +1,3 @@
-use crate::commands::simple_resp_helper;
-use crate::db::INMEMORY_DB;
-use crate::songbird_handler::DriverDisconnectNotifier;
-
 use serenity::{
     builder::CreateApplicationCommand,
     client::Context,
@@ -11,6 +7,11 @@ use serenity::{
     },
 };
 use songbird::CoreEvent;
+
+use crate::commands::simple_resp_helper;
+use crate::db::INMEMORY_DB;
+use crate::songbird_handler::DriverDisconnectNotifier;
+
 
 pub fn register(cmd: &mut CreateApplicationCommand) -> &mut CreateApplicationCommand {
     cmd.name("join")

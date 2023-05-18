@@ -1,9 +1,9 @@
-use crate::commands::simple_resp_helper;
-
 use serenity::{
     builder::CreateApplicationCommand, client::Context,
     model::application::interaction::application_command::ApplicationCommandInteraction,
 };
+
+use crate::commands::simple_resp_helper;
 
 pub fn register(cmd: &mut CreateApplicationCommand) -> &mut CreateApplicationCommand {
     cmd.name("skip")

@@ -1,8 +1,3 @@
-use crate::db::PERSISTENT_DB;
-use crate::interactive_component::{CompileWithBuilder, SelectorResponse};
-use crate::model::SpeakerSelector;
-use crate::voicevox;
-
 use serenity::{
     builder::{CreateApplicationCommand, CreateInteractionResponseData},
     client::Context,
@@ -20,6 +15,11 @@ use serenity::{
         },
     },
 };
+
+use crate::db::PERSISTENT_DB;
+use crate::interactive_component::{CompileWithBuilder, SelectorResponse};
+use crate::model::SpeakerSelector;
+use crate::voicevox;
 
 pub fn register(cmd: &mut CreateApplicationCommand) -> &mut CreateApplicationCommand {
     cmd.name("speaker")

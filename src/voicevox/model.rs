@@ -1,5 +1,6 @@
-use serde::Deserialize;
 use std::borrow::Cow;
+
+use serde::Deserialize;
 use uuid::Uuid;
 
 #[derive(Deserialize, Debug)]

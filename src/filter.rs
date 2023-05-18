@@ -25,7 +25,7 @@ where
 {
     if mes.channel_id != INMEMORY_DB.get_instance(mes.guild_id?)? {
         return None;
-    };
+    }
 
     if mes.author.bot {
         return None;
