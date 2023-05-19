@@ -14,7 +14,6 @@ use crate::db::INMEMORY_DB;
 // regex crate's named capture
 #[allow(clippy::invalid_regex)]
 static CHANNEL_MENTION_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"<#(?<id>\d{18})>").unwrap());
-
 static CODEBLOCK_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?sm)```.+```").unwrap());
 static EMOJI_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"(<:\w+:\d{18}>|:\w+:)").unwrap());
 static URI_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"\S+:\S+").unwrap());

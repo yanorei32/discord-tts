@@ -1,7 +1,6 @@
 use std::borrow::Cow;
 
 use serde::Deserialize;
-use uuid::Uuid;
 
 #[derive(Deserialize, Debug)]
 pub struct ApiSpeakers {
@@ -33,7 +32,6 @@ pub struct ApiSpeakerInfoStyleInfos {
 #[derive(Clone, Debug)]
 pub struct Speaker<'a> {
     pub name: String,
-    pub uuid: Uuid,
     pub policy: String,
     pub portrait: Cow<'a, [u8]>,
     pub styles: Vec<SpeakerStyle<'a>>,

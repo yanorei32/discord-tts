@@ -11,11 +11,4 @@ pub struct Config {
     pub voicevox_host: String,
     pub discord_token: String,
     pub persistent_path: PathBuf,
-
-    #[serde(default = "default_tmp_path")]
-    pub tmp_path: PathBuf,
-}
-
-fn default_tmp_path() -> PathBuf {
-    PathBuf::from("/tmp/")
 }

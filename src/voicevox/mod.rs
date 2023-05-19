@@ -1,12 +1,12 @@
 use std::borrow::Cow;
-use std::str::FromStr;
+use std::sync::Arc;
 use std::sync::Mutex;
 
-use base64::{Engine as _, engine::general_purpose::STANDARD as base64_engine};
+use base64::{engine::general_purpose::STANDARD as base64_engine, Engine as _};
+use bytes::Bytes;
 use once_cell::sync::Lazy;
-use reqwest::header::CONTENT_TYPE;
-use reqwest::Client;
-use uuid::Uuid;
+use reqwest::{header::CONTENT_TYPE, Url};
+use tap::prelude::*;
 
 use crate::config::CONFIG;
 
@@ -14,8 +14,61 @@ pub mod model;
 
 static SPEAKERS: Lazy<Mutex<Vec<model::Speaker>>> = Lazy::new(|| Mutex::new(Vec::new()));
 
+#[derive(Debug, Clone)]
+pub struct Client {
+    inner: Arc<InnerClient>,
+}
+
+#[derive(Debug)]
+pub struct InnerClient {
+    host: Url,
+    client: reqwest::Client,
+}
+
+type SpeakerId = u64;
+
+impl Client {
+    pub fn new(host: Url, client: reqwest::Client) -> Self {
+        Self {
+            inner: Arc::new(InnerClient { host, client }),
+        }
+    }
+
+    pub async fn tts(&self, text: &str, speaker_id: SpeakerId) -> Bytes {
+        let url = self.inner.host.clone().tap_mut(|u| {
+            u.path_segments_mut().unwrap().push("audio_query");
+            u.query_pairs_mut()
+                .clear()
+                .append_pair("text", text)
+                .append_pair("speaker", &speaker_id.to_string());
+        });
+
+        let resp = self.inner.client.post(url).send().await.unwrap();
+        let query_text = resp.text().await.unwrap();
+
+        let url = self.inner.host.clone().tap_mut(|u| {
+            u.path_segments_mut().unwrap().push("synthesis");
+            u.query_pairs_mut()
+                .clear()
+                .append_pair("speaker", &speaker_id.to_string());
+        });
+
+        let resp = self
+            .inner
+            .client
+            .post(url)
+            .header(CONTENT_TYPE, "application/json")
+            .body(query_text)
+            .send()
+            .await
+            .unwrap();
+
+        resp.bytes().await.unwrap()
+    }
+}
+
 pub async fn load_speaker_info() {
-    let client = Client::new();
+    let client = reqwest::Client::new();
 
     let api_speakers: Vec<model::ApiSpeakers> = client
         .get(format!("{}/speakers", CONFIG.voicevox_host))
@@ -62,7 +115,9 @@ pub async fn load_speaker_info() {
                         .clone(),
                     id: style_info.id,
                     icon: Cow::from(
-                        base64_engine.decode(style_info.icon).expect("Failed to decode icon"),
+                        base64_engine
+                            .decode(style_info.icon)
+                            .expect("Failed to decode icon"),
                     ),
                     samples,
                 }
@@ -71,9 +126,12 @@ pub async fn load_speaker_info() {
 
         let speaker = model::Speaker {
             name: api_speaker.name,
-            uuid: Uuid::from_str(uuid.as_str()).expect("Failed to parse UUID from str"),
             policy: info.policy,
-            portrait: Cow::from(base64_engine.decode(info.portrait).expect("Failed to decode portrait")),
+            portrait: Cow::from(
+                base64_engine
+                    .decode(info.portrait)
+                    .expect("Failed to decode portrait"),
+            ),
             styles,
         };
 

@@ -1,5 +1,3 @@
-use std::fs;
-use std::path::PathBuf;
 use std::sync::Arc;
 
 use serenity::async_trait;
@@ -24,21 +22,6 @@ impl VoiceEventHandler for DriverDisconnectNotifier {
 
         INMEMORY_DB.destroy_instance(ctx.guild_id.0.into());
         self.songbird_manager.remove(ctx.guild_id).await.unwrap();
-
-        None
-    }
-}
-
-pub struct ReadEndNotifier {
-    pub temporary_filename: PathBuf,
-}
-
-#[async_trait]
-impl VoiceEventHandler for ReadEndNotifier {
-    async fn act(&self, ctx: &EventContext<'_>) -> Option<Event> {
-        if let EventContext::Track(_) = ctx {
-            fs::remove_file(&self.temporary_filename).expect("Failed to remove temporary file");
-        }
 
         None
     }
