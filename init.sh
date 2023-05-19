@@ -1,15 +1,15 @@
 #!/bin/bash
 set -eux
 
-# depName=debian_11/ffmpeg
-FFMPEG_VERSION="7:4.3.6-0+deb11u1"
+# depName=debian_11/ca-certificates
+CA_CERTIFICATES_VERSION="20210119"
 
 apt-get update -qq
 
 apt-get install -qq -y --no-install-recommends \
-	"ffmpeg=$FFMPEG_VERSION"
+       "ca-certificates=$CA_CERTIFICATES_VERSION"
 
 rm -rf /var/lib/apt/lists/*
 
 mkdir /var/discordtts
-echo '{}' > /var/discordtts/state.json
+echo '{"voice_settings":{}}' > /var/discordtts/state.json

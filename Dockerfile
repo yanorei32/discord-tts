@@ -13,6 +13,7 @@ WORKDIR /usr/src
 RUN cargo new discord-tts
 COPY LICENSE Cargo.toml Cargo.lock /usr/src/discord-tts/
 WORKDIR /usr/src/discord-tts
+ENV CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse
 RUN	cargo install cargo-license && cargo license \
 	--authors \
 	--do-not-bundle \
