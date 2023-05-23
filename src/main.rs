@@ -24,6 +24,7 @@ use serenity::{
     },
 };
 use songbird::{tracks::create_player, SerenityInit};
+use tap::Tap;
 
 use crate::config::CONFIG;
 use crate::db::PERSISTENT_DB;
@@ -86,19 +87,35 @@ impl EventHandler for Bot {
 async fn main() {
     tracing_subscriber::fmt::init();
 
-    voicevox::load_speaker_info().await;
-
     let intents = GatewayIntents::GUILDS
         | GatewayIntents::GUILD_VOICE_STATES
         | GatewayIntents::GUILD_MESSAGES
         | GatewayIntents::MESSAGE_CONTENT;
 
+    let header = reqwest::header::HeaderMap::new().tap_mut(|h| {
+        let Some(s) = &CONFIG.additional_headers else {
+            return;
+        };
+
+        for s in s.split(',') {
+            let mut split = s.split(':');
+
+            let key = split.next().unwrap().trim();
+            let value = split.next().unwrap().trim();
+
+            h.insert(key, reqwest::header::HeaderValue::from_str(&value).unwrap());
+        }
+    });
+
     let mut client = Client::builder(&CONFIG.discord_token, intents)
         .event_handler(Bot {
             voicevox: voicevox::Client::new(
                 Url::parse(&CONFIG.voicevox_host).unwrap(),
-                reqwest::Client::new(),
-            ),
+                reqwest::Client::builder()
+                    .default_headers(header)
+                    .build()
+                    .unwrap(),
+            ).await,
         })
         .register_songbird()
         .await

@@ -10,5 +10,6 @@ pub static CONFIG: Lazy<Config> =
 pub struct Config {
     pub voicevox_host: String,
     pub discord_token: String,
+    pub additional_headers: Option<String>,
     pub persistent_path: PathBuf,
 }

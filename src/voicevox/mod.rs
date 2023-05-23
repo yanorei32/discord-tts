@@ -8,8 +8,6 @@ use once_cell::sync::Lazy;
 use reqwest::{header::CONTENT_TYPE, Url};
 use tap::prelude::*;
 
-use crate::config::CONFIG;
-
 pub mod model;
 
 static SPEAKERS: Lazy<Mutex<Vec<model::Speaker>>> = Lazy::new(|| Mutex::new(Vec::new()));
@@ -28,7 +26,9 @@ pub struct InnerClient {
 type SpeakerId = u64;
 
 impl Client {
-    pub fn new(host: Url, client: reqwest::Client) -> Self {
+    pub async fn new(host: Url, client: reqwest::Client) -> Self {
+        load_speaker_info(&host, &client).await;
+
         Self {
             inner: Arc::new(InnerClient { host, client }),
         }
@@ -67,12 +67,13 @@ impl Client {
     }
 }
 
-pub async fn load_speaker_info() {
-    let client = reqwest::Client::new();
+async fn load_speaker_info(host: &Url, client: &reqwest::Client) {
+    let url = host.clone().tap_mut(|u| {
+        u.path_segments_mut().unwrap().push("speakers");
+    });
 
     let api_speakers: Vec<model::ApiSpeakers> = client
-        .get(format!("{}/speakers", CONFIG.voicevox_host))
-        .header(CONTENT_TYPE, "application/json")
+        .get(url)
         .send()
         .await
         .expect("Failed to get speakers")
@@ -81,12 +82,17 @@ pub async fn load_speaker_info() {
         .expect("JSON was not well-formatted");
 
     for api_speaker in api_speakers {
-        let uuid = api_speaker.speaker_uuid;
+        let uuid = &api_speaker.speaker_uuid;
+
+        let url = host.clone().tap_mut(|u| {
+            u.path_segments_mut().unwrap().push("speaker_info");
+            u.query_pairs_mut()
+                .clear()
+                .append_pair("speaker_uuid", &uuid);
+        });
 
         let info: model::ApiSpeakerInfo = client
-            .get(format!("{}/speaker_info", CONFIG.voicevox_host))
-            .query(&[("speaker_uuid", &uuid)])
-            .header(CONTENT_TYPE, "application/json")
+            .get(url)
             .send()
             .await
             .unwrap_or_else(|_| panic!("Failed to get speaker information of {uuid}"))
