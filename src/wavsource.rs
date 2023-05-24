@@ -14,11 +14,11 @@ pub fn wav_reader<R: Read + Seek>(reader: &mut R) -> Input {
     )
 }
 
-pub struct WavSource {
-    iterator: slice::Iter<'static, u8>,
+pub struct WavSource<'a> {
+    iterator: slice::Iter<'a, u8>,
 }
 
-impl WavSource {
+impl<'a> WavSource<'a> {
     pub fn new<R: Seek + Read>(reader: &mut R) -> Self {
         let (_, BitDepth::Sixteen(data)) = wav::read(reader).unwrap() else {
             unimplemented!();
@@ -43,11 +43,11 @@ impl WavSource {
             slice::from_raw_parts(data.as_mut_ptr() as *mut u8, data.len() * 2)
         };
 
-        Self { iterator: data.into_iter() }
+        Self { iterator: data.iter() }
     }
 }
 
-impl Read for WavSource {
+impl<'a> Read for WavSource<'a> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
         let mut len = 0;
 
@@ -60,13 +60,13 @@ impl Read for WavSource {
     }
 }
 
-impl Seek for WavSource {
+impl<'a> Seek for WavSource<'a> {
     fn seek(&mut self, _pos: SeekFrom) -> Result<u64> {
         unimplemented!();
     }
 }
 
-impl MediaSource for WavSource {
+impl<'a> MediaSource for WavSource<'a> {
     fn is_seekable(&self) -> bool {
         false
     }
