@@ -9,7 +9,7 @@ use serenity::{
 };
 
 pub mod join;
-pub mod leave;
+pub mod left;
 pub mod skip;
 pub mod speaker;
 

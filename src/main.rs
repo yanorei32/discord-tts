@@ -37,7 +37,7 @@ impl EventHandler for Bot {
         Command::set_global_application_commands(&ctx.http, |commands| {
             commands
                 .create_application_command(commands::join::register)
-                .create_application_command(commands::leave::register)
+                .create_application_command(commands::left::register)
                 .create_application_command(commands::skip::register)
                 .create_application_command(commands::speaker::register)
         })
@@ -69,7 +69,7 @@ impl EventHandler for Bot {
             Interaction::ApplicationCommand(command) => match command.data.name.as_str() {
                 "speaker" => commands::speaker::run(&ctx, command, &self.voicevox).await,
                 "join" => commands::join::run(&ctx, command).await,
-                "leave" => commands::leave::run(&ctx, command).await,
+                "left" => commands::left::run(&ctx, command).await,
                 "skip" => commands::skip::run(&ctx, command).await,
                 _ => unreachable!("Unknown command: {}", command.data.name),
             },

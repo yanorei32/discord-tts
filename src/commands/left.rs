@@ -6,8 +6,8 @@ use serenity::{
 use crate::commands::simple_resp_helper;
 
 pub fn register(cmd: &mut CreateApplicationCommand) -> &mut CreateApplicationCommand {
-    cmd.name("leave")
-        .description("Leave from VC")
+    cmd.name("left")
+        .description("left from VC")
         .dm_permission(false)
 }
 
@@ -23,5 +23,5 @@ pub async fn run(ctx: &Context, interaction: ApplicationCommandInteraction) {
         return;
     };
 
-    simple_resp_helper(&interaction, ctx, "Leaved!", false).await;
+    simple_resp_helper(&interaction, ctx, "Disconnected!", false).await;
 }
