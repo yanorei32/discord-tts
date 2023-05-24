@@ -40,7 +40,7 @@ impl<'a> WavSource<'a> {
 
         let data = unsafe {
             let mut data = std::mem::ManuallyDrop::new(data);
-            slice::from_raw_parts(data.as_mut_ptr() as *mut u8, data.len() * 2)
+            slice::from_raw_parts(data.as_mut_ptr().cast::<u8>(), data.len() * 2)
         };
 
         Self { iterator: data.iter() }
