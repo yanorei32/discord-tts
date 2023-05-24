@@ -9,6 +9,7 @@ edition = "2021"
 base64 = "0.21.1"
 bytes = "1.4.0"
 envy = "0.4.2"
+futures = "0.3.28"
 once_cell = "1.17.1"
 regex = "1.8.1"
 reqwest = { version = "0.11.18", features = ["native-tls"] , default-features = false }
@@ -16,6 +17,7 @@ serde = { version = "1.0.163" , features = ["derive"] }
 serde_json = "1.0.96"
 serenity = { version = "0.11.5", features = ["cache", "client", "voice", "native_tls_backend"], default-features = false }
 songbird = { version = "0.3.2", features = ["builtin-queue", "serenity-native", "driver"], default-features = false }
+structstruck = "0.4.1"
 tap = "1.0.1"
 tokio = { version = "1.28.1", features = ["macros", "rt-multi-thread", "signal"] }
 tracing = "0.1.37"

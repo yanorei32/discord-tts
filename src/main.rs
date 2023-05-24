@@ -4,8 +4,6 @@ mod commands;
 mod config;
 mod db;
 mod filter;
-mod interactive_component;
-mod model;
 mod songbird_handler;
 mod voicevox;
 mod wavsource;
@@ -55,7 +53,7 @@ impl EventHandler for Bot {
         };
 
         let speaker = PERSISTENT_DB.get_speaker_id(msg.author.id);
-        let mut wav = Cursor::new(self.voicevox.tts(&content, speaker.into()).await);
+        let mut wav = Cursor::new(self.voicevox.tts(&content, speaker).await);
         let (audio, _handle) = create_player(wavsource::wav_reader(&mut wav));
 
         let manager = songbird::get(&ctx)
@@ -69,14 +67,14 @@ impl EventHandler for Bot {
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
         match interaction {
             Interaction::ApplicationCommand(command) => match command.data.name.as_str() {
-                "speaker" => commands::speaker::run(&ctx, command).await,
+                "speaker" => commands::speaker::run(&ctx, command, &self.voicevox).await,
                 "join" => commands::join::run(&ctx, command).await,
                 "leave" => commands::leave::run(&ctx, command).await,
                 "skip" => commands::skip::run(&ctx, command).await,
                 _ => unreachable!("Unknown command: {}", command.data.name),
             },
             Interaction::MessageComponent(interaction) => {
-                commands::speaker::update(&ctx, interaction).await;
+                commands::speaker::update(&ctx, interaction, &self.voicevox).await;
             }
             _ => {}
         }
@@ -92,7 +90,7 @@ async fn main() {
         | GatewayIntents::GUILD_MESSAGES
         | GatewayIntents::MESSAGE_CONTENT;
 
-    let header = reqwest::header::HeaderMap::new().tap_mut(|h| {
+    let default_header = reqwest::header::HeaderMap::new().tap_mut(|h| {
         let Some(s) = &CONFIG.additional_headers else {
             return;
         };
@@ -103,7 +101,7 @@ async fn main() {
             let key = split.next().unwrap().trim();
             let value = split.next().unwrap().trim();
 
-            h.insert(key, reqwest::header::HeaderValue::from_str(&value).unwrap());
+            h.insert(key, reqwest::header::HeaderValue::from_str(value).unwrap());
         }
     });
 
@@ -112,7 +110,7 @@ async fn main() {
             voicevox: voicevox::Client::new(
                 Url::parse(&CONFIG.voicevox_host).unwrap(),
                 reqwest::Client::builder()
-                    .default_headers(header)
+                    .default_headers(default_header)
                     .build()
                     .unwrap(),
             ).await,

@@ -1,46 +1,87 @@
 use std::borrow::Cow;
 
-use serde::Deserialize;
+pub mod api {
+    use base64::{engine::general_purpose::STANDARD as base64_engine, Engine as _};
+    use serde::{de, Deserialize};
 
-#[derive(Deserialize, Debug)]
-pub struct ApiSpeakers {
-    pub name: String,
-    pub speaker_uuid: String,
-    pub styles: Vec<ApiSpeakersStyles>,
+    #[derive(Debug)]
+    pub struct DecodedBinary {
+        pub bin: Vec<u8>,
+    }
+
+    impl<'de> Deserialize<'de> for DecodedBinary {
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: serde::Deserializer<'de>,
+        {
+            let s: &str = de::Deserialize::deserialize(deserializer)?;
+            Ok(DecodedBinary {
+                bin: base64_engine.decode(s).expect("failed to decode portrait"),
+            })
+        }
+    }
+
+    structstruck::strike! {
+        #[derive(Deserialize, Debug)]
+        pub struct Speaker {
+            pub name: String,
+            pub speaker_uuid: String,
+            pub styles: Vec<
+                #[derive(Deserialize, Debug)]
+                pub struct Style {
+                    pub name: String,
+                    pub id: u32,
+                },
+            >,
+        }
+    }
+
+    structstruck::strike! {
+        #[derive(Deserialize, Debug)]
+        pub struct SpeakerInfo {
+            pub policy: String,
+            pub portrait: DecodedBinary,
+            pub style_infos: Vec<
+                #[derive(Deserialize, Debug)]
+                pub struct StyleInfo {
+                    pub id: u32,
+                    pub icon: DecodedBinary,
+                    pub voice_samples: Vec<DecodedBinary>,
+                }
+            >,
+        }
+    }
 }
 
-#[derive(Deserialize, Debug)]
-pub struct ApiSpeakersStyles {
-    pub name: String,
-    pub id: u32,
+pub type SpeakerId = u32;
+
+structstruck::strike! {
+    #[derive(Debug)]
+    pub struct Speaker<'a> {
+        pub name: String,
+        pub policy: String,
+        pub portrait: Cow<'a, [u8]>,
+        pub styles: Vec<
+            #[derive(Debug)]
+            pub struct SpeakerStyle<'a> {
+                pub name: String,
+                pub id: SpeakerId,
+                pub icon: Cow<'a, [u8]>,
+                pub voice_samples: Vec<Cow<'a, [u8]>>,
+            }
+        >,
+    }
 }
 
-#[derive(Deserialize, Debug)]
-pub struct ApiSpeakerInfo {
-    pub policy: String,
-    pub portrait: String,
-    pub style_infos: Vec<ApiSpeakerInfoStyleInfos>,
-}
-
-#[derive(Deserialize, Debug)]
-pub struct ApiSpeakerInfoStyleInfos {
-    pub id: u32,
-    pub icon: String,
-    pub voice_samples: Vec<String>,
-}
-
-#[derive(Clone, Debug)]
-pub struct Speaker<'a> {
-    pub name: String,
-    pub policy: String,
-    pub portrait: Cow<'a, [u8]>,
-    pub styles: Vec<SpeakerStyle<'a>>,
-}
-
-#[derive(Clone, Debug)]
-pub struct SpeakerStyle<'a> {
-    pub name: String,
-    pub id: u32,
-    pub icon: Cow<'a, [u8]>,
-    pub samples: Vec<Cow<'a, [u8]>>,
+#[derive(Debug)]
+pub struct SpeakerStyleView<'a> {
+    pub speaker_i: usize,
+    pub speaker_name: &'a str,
+    pub speaker_policy: &'a str,
+    pub speaker_portrait: Cow<'a, [u8]>,
+    pub style_i: usize,
+    pub style_name: &'a str,
+    pub style_id: SpeakerId,
+    pub style_icon: Cow<'a, [u8]>,
+    pub style_voice_samples: &'a Vec<Cow<'a, [u8]>>,
 }

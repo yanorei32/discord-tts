@@ -8,13 +8,15 @@ use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use serenity::model::prelude::{ChannelId, GuildId, UserId};
 
+use crate::voicevox::model::SpeakerId;
+
 pub static PERSISTENT_DB: Lazy<PersistentDB> = Lazy::new(|| {
     PersistentDB::new(&crate::config::CONFIG.persistent_path).expect("Failed to initialize DB")
 });
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct PersistentStructure {
-    voice_settings: HashMap<UserId, u8>,
+    voice_settings: HashMap<UserId, SpeakerId>,
 }
 
 pub struct PersistentDB {
@@ -33,7 +35,7 @@ impl PersistentDB {
         })
     }
 
-    pub fn get_speaker_id(&self, user: UserId) -> u8 {
+    pub fn get_speaker_id(&self, user: UserId) -> SpeakerId {
         self.data
             .read()
             .unwrap()
@@ -43,7 +45,7 @@ impl PersistentDB {
             .to_owned()
     }
 
-    pub fn store_speaker_id(&self, user: UserId, speaker_id: u8) {
+    pub fn store_speaker_id(&self, user: UserId, speaker_id: SpeakerId) {
         self.data
             .write()
             .unwrap()

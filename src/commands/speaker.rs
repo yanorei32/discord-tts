@@ -1,220 +1,149 @@
 use serenity::{
-    builder::{CreateApplicationCommand, CreateInteractionResponseData},
+    builder::{CreateApplicationCommand, CreateInteractionResponse},
     client::Context,
     model::{
-        application::{
-            command::CommandOptionType,
-            interaction::{
-                application_command::ApplicationCommandInteraction, InteractionResponseType,
-            },
+        application::interaction::{
+            application_command::ApplicationCommandInteraction, InteractionResponseType,
         },
         channel::AttachmentType,
-        prelude::{
-            interaction::{message_component::MessageComponentInteraction, MessageFlags},
-            UserId,
+        prelude::interaction::message_component::{
+            MessageComponentInteraction, MessageComponentInteractionData,
         },
     },
 };
 
-use crate::db::PERSISTENT_DB;
-use crate::interactive_component::{CompileWithBuilder, SelectorResponse};
-use crate::model::SpeakerSelector;
-use crate::voicevox;
+use crate::voicevox::Client as VoicevoxClient;
+use crate::{db::PERSISTENT_DB, voicevox::model::SpeakerId};
 
 pub fn register(cmd: &mut CreateApplicationCommand) -> &mut CreateApplicationCommand {
     cmd.name("speaker")
         .description("Manage your speaker")
-        .create_option(|opt| {
-            opt.kind(CommandOptionType::SubCommand)
-                .name("current")
-                .description("Show your current speaker")
-        })
-        .create_option(|opt| {
-            opt.kind(CommandOptionType::SubCommand)
-                .name("change")
-                .description("Change your speaker")
-        })
+        .dm_permission(false)
 }
 
-pub async fn run(ctx: &Context, interaction: ApplicationCommandInteraction) {
-    match interaction.data.options.first().unwrap().name.as_str() {
-        "current" => interaction
-            .create_interaction_response(&ctx.http, |resp| {
-                resp.kind(InteractionResponseType::ChannelMessageWithSource)
-                    .interaction_response_data(|mes| {
-                        build_current_speaker_response(mes, interaction.user.id);
-                        mes.flags(MessageFlags::EPHEMERAL)
-                    })
-            })
-            .await
-            .expect("Failed to create response"),
-        "change" => interaction
-            .create_interaction_response(&ctx.http, |resp| {
-                resp.kind(InteractionResponseType::ChannelMessageWithSource)
-                    .interaction_response_data(|mes| {
-                        build_speaker_selector_response(mes, SpeakerSelector::None);
-                        mes.flags(MessageFlags::EPHEMERAL)
-                    })
-            })
-            .await
-            .expect("Failed to create response"),
-        _ => unreachable!(),
-    }
-}
-
-pub async fn update(ctx: &Context, interaction: MessageComponentInteraction) {
-    if interaction.data.custom_id.starts_with("select_style") {
-        interaction
-            .create_interaction_response(&ctx.http, |response| {
-                let id = interaction.data.custom_id.rsplit_once('_').unwrap().1;
-                PERSISTENT_DB.store_speaker_id(interaction.user.id, id.parse().unwrap());
-
-                response
-                    .kind(InteractionResponseType::UpdateMessage)
-                    .interaction_response_data(|message| {
-                        build_current_speaker_response(message, interaction.user.id);
-                        message
-                    })
-            })
-            .await
-            .expect("Failed to create response");
-    } else if interaction.data.custom_id.starts_with("speaker") {
-        interaction
-            .create_interaction_response(&ctx.http, |response| {
-                let values = &interaction.data.values;
-                let index: usize = values.get(0).unwrap().parse().unwrap();
-
-                response
-                    .kind(InteractionResponseType::UpdateMessage)
-                    .interaction_response_data(|message| {
-                        build_speaker_selector_response(
-                            message,
-                            SpeakerSelector::SpeakerOnly { speaker: index },
-                        );
-                        message
-                    })
-            })
-            .await
-            .expect("Failed to create response");
-    } else if interaction.data.custom_id.starts_with("style") {
-        interaction
-            .create_interaction_response(&ctx.http, |response| {
-                let values = &interaction.data.values;
-                let indices: Vec<&str> = values.get(0).unwrap().split('_').collect();
-                let speaker_index: usize = indices.first().unwrap().parse().unwrap();
-                let style_index: usize = indices.get(1).unwrap().parse().unwrap();
-
-                response
-                    .kind(InteractionResponseType::UpdateMessage)
-                    .interaction_response_data(|message| {
-                        build_speaker_selector_response(
-                            message,
-                            SpeakerSelector::SpeakerAndStyle {
-                                speaker: speaker_index,
-                                style: style_index,
-                            },
-                        );
-                        message
-                    })
-            })
-            .await
-            .expect("Failed to create response");
-    }
-}
-
-fn build_current_speaker_response(message: &mut CreateInteractionResponseData, user_id: UserId) {
-    let speaker_id = PERSISTENT_DB.get_speaker_id(user_id);
-    let speakers = voicevox::get_speakers();
-
-    let (name, style) = speakers
-        .iter()
-        .flat_map(|speaker| speaker.styles.iter().map(|style| (&speaker.name, style)))
-        .find(|v| v.1.id == u32::from(speaker_id))
-        .unwrap();
-
-    message
-        .add_file(AttachmentType::Bytes {
-            data: style.icon.clone(),
-            filename: "icon.png".to_string(),
-        })
-        .embed(|embed| {
-            embed
-                .author(|author| author.name("Speaker currently in use"))
-                .thumbnail("attachment://icon.png")
-                .fields([
-                    ("Speaker name", &name.to_string(), false),
-                    ("Style", &style.name, true),
-                    ("id", &style.id.to_string(), true),
-                ])
-        });
-}
-
-fn build_speaker_selector_response(
-    message: &mut CreateInteractionResponseData,
-    selector: SpeakerSelector,
+pub async fn run(
+    ctx: &Context,
+    interaction: ApplicationCommandInteraction,
+    voicevox: &VoicevoxClient,
 ) {
-    let speakers = voicevox::get_speakers();
+    let speaker_id = PERSISTENT_DB.get_speaker_id(interaction.user.id);
 
-    let message = match selector {
-        SpeakerSelector::SpeakerAndStyle {
-            speaker: speaker_index,
-            style,
-        } => {
-            let speaker = speakers.get(speaker_index).unwrap();
-            let style = speaker.styles.get(style).unwrap();
+    interaction
+        .create_interaction_response(&ctx.http, |resp| {
+            create_modal(resp, voicevox, speaker_id);
+            resp
+        })
+        .await
+        .unwrap();
+}
 
-            message.add_file(AttachmentType::Bytes {
-                data: style.icon.clone(),
-                filename: "thumbnail.png".to_string(),
-            });
+pub async fn update(
+    ctx: &Context,
+    interaction: MessageComponentInteraction,
+    voicevox: &VoicevoxClient,
+) {
+    let speakers = voicevox.get_speakers();
+    let speaker_id: SpeakerId = match &interaction.data {
+        MessageComponentInteractionData {
+            custom_id, values, ..
+        } if custom_id == "speaker_selector" => {
+            let speaker_i: usize = values.first().unwrap().parse().unwrap();
 
-            style
-                .samples
-                .iter()
-                .enumerate()
-                .fold(message, |m, (i, sample)| {
-                    m.add_file(AttachmentType::Bytes {
-                        data: sample.clone(),
-                        filename: format!("sample{i}.wav"),
-                    })
+            speakers[speaker_i].styles.first().unwrap().id
+        }
+        MessageComponentInteractionData {
+            custom_id, values, ..
+        } if custom_id == "style_selector" => values.first().unwrap().parse().unwrap(),
+        MessageComponentInteractionData { custom_id, .. } if custom_id.starts_with("apply_") => {
+            let speaker_id: u32 = custom_id.split('_').nth(1).unwrap().parse().unwrap();
+            println!("Store {}: {}", interaction.user.id, speaker_id);
+            PERSISTENT_DB.store_speaker_id(interaction.user.id, speaker_id);
+
+            interaction
+                .create_interaction_response(&ctx.http, |response| {
+                    response
+                        .kind(InteractionResponseType::UpdateMessage)
+                        .interaction_response_data(|mes| {
+                            mes.components(|comp| comp.set_action_rows(Vec::new()))
+                        })
                 })
-        }
-        SpeakerSelector::SpeakerOnly { speaker: index } => {
-            let speaker = speakers.get(index).unwrap();
+                .await
+                .unwrap();
 
-            message.add_file(AttachmentType::Bytes {
-                data: speaker.portrait.clone(),
-                filename: "thumbnail.png".to_string(),
-            })
+            return;
         }
-        SpeakerSelector::None => message,
+        _ => unimplemented!(),
     };
 
-    if let Some(speaker_index) = selector.speaker() {
-        let speaker = speakers.get(speaker_index).unwrap();
+    interaction
+        .create_interaction_response(&ctx.http, |resp| {
+            create_modal(resp, voicevox, speaker_id);
+            resp.kind(InteractionResponseType::UpdateMessage)
+        })
+        .await
+        .unwrap();
+}
 
-        message.embed(|embed| {
-            embed
-                .author(|author| author.name("Select speaker you want to use"))
-                .thumbnail("attachment://thumbnail.png")
-                .field("Name", &speaker.name, true);
+pub fn create_modal<'a>(
+    resp: &mut CreateInteractionResponse<'a>,
+    voicevox: &'a VoicevoxClient,
+    speaker_id: SpeakerId,
+) {
+    let speakers = voicevox.get_speakers();
+    let style = voicevox.query_style_by_id(speaker_id).unwrap();
 
-            let style = selector.style().map(|a| speaker.styles.get(a).unwrap());
-            embed.fields([
-                (
-                    "Style",
-                    style.map_or_else(|| "-".to_string(), |s| s.name.clone()),
-                    true,
-                ),
-                (
-                    "ID",
-                    style.map_or_else(|| "-".to_string(), |s| s.id.to_string()),
-                    true,
-                ),
-                ("Policy", speaker.policy.clone(), false),
-            ])
+    resp.kind(InteractionResponseType::ChannelMessageWithSource)
+        .interaction_response_data(|mes| {
+            mes.embed(|embed| {
+                embed
+                    .author(|author| {
+                        author.name(format!("{} / {}", style.speaker_name, style.style_name))
+                    })
+                    .field("Policy", style.speaker_policy, false)
+                    .thumbnail("attachment://icon.png")
+            })
+            .add_file(AttachmentType::Bytes {
+                data: style.style_icon,
+                filename: "icon.png".to_string(),
+            })
+            .components(|comp| {
+                comp.create_action_row(|v| {
+                    v.create_select_menu(|sel| {
+                        sel.options(|opts| {
+                            speakers.iter().enumerate().fold(opts, |opts, (i, v)| {
+                                opts.create_option(|opt| {
+                                    opt.default_selection(style.speaker_i == i)
+                                        .label(&v.name)
+                                        .value(i)
+                                })
+                            })
+                        })
+                        .custom_id("speaker_selector")
+                    })
+                })
+                .create_action_row(|v| {
+                    v.create_select_menu(|sel| {
+                        sel.options(|opts| {
+                            speakers[style.speaker_i].styles.iter().enumerate().fold(
+                                opts,
+                                |opts, (i, v)| {
+                                    opts.create_option(|opt| {
+                                        opt.default_selection(style.style_i == i)
+                                            .label(&v.name)
+                                            .value(v.id)
+                                    })
+                                },
+                            )
+                        })
+                        .custom_id("style_selector")
+                    })
+                })
+                .create_action_row(|v| {
+                    v.create_button(|btn| {
+                        btn.label("Apply").custom_id(format!("apply_{speaker_id}"))
+                    })
+                })
+            })
+            .ephemeral(true)
         });
-    }
-
-    SelectorResponse::default().build((speakers, selector), message);
 }
