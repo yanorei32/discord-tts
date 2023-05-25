@@ -40,7 +40,6 @@ pub mod api {
         #[derive(Deserialize, Debug)]
         pub struct SpeakerInfo {
             pub policy: String,
-            pub portrait: DecodedBinary,
             pub style_infos: Vec<
                 #[derive(Deserialize, Debug)]
                 pub struct StyleInfo {
@@ -60,7 +59,6 @@ structstruck::strike! {
     pub struct Speaker<'a> {
         pub name: String,
         pub policy: String,
-        pub portrait: Cow<'a, [u8]>,
         pub styles: Vec<
             #[derive(Debug)]
             pub struct SpeakerStyle<'a> {
@@ -78,7 +76,6 @@ pub struct SpeakerStyleView<'a> {
     pub speaker_i: usize,
     pub speaker_name: &'a str,
     pub speaker_policy: &'a str,
-    pub speaker_portrait: Cow<'a, [u8]>,
     pub style_i: usize,
     pub style_name: &'a str,
     pub style_id: SpeakerId,

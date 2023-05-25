@@ -91,7 +91,6 @@ impl Client {
                 Speaker {
                     name: speaker.name,
                     policy: speaker_info.policy,
-                    portrait: Cow::Owned(speaker_info.portrait.bin),
                     styles: speaker_styles,
                 }
             })
@@ -120,7 +119,6 @@ impl Client {
                     speaker_i,
                     speaker_name: &speaker.name,
                     speaker_policy: &speaker.policy,
-                    speaker_portrait: speaker.portrait.clone(),
                     style_i,
                     style_id: style.id,
                     style_icon: style.icon.clone(),
