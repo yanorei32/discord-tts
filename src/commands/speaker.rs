@@ -15,8 +15,8 @@ use serenity::{
 use crate::voicevox::Client as VoicevoxClient;
 use crate::{db::PERSISTENT_DB, voicevox::model::SpeakerId};
 
-pub fn register(cmd: &mut CreateApplicationCommand) -> &mut CreateApplicationCommand {
-    cmd.name("speaker")
+pub fn register<'a>(prefix: &str, cmd: &'a mut CreateApplicationCommand) -> &'a mut CreateApplicationCommand {
+    cmd.name(format!("{prefix}speaker"))
         .description("Manage your speaker")
         .dm_permission(false)
 }

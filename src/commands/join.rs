@@ -13,8 +13,8 @@ use crate::db::INMEMORY_DB;
 use crate::songbird_handler::DriverDisconnectNotifier;
 
 
-pub fn register(cmd: &mut CreateApplicationCommand) -> &mut CreateApplicationCommand {
-    cmd.name("join")
+pub fn register<'a>(prefix: &str, cmd: &'a mut CreateApplicationCommand) -> &'a mut CreateApplicationCommand {
+    cmd.name(format!("{prefix}join"))
         .description("Join to your channel")
         .dm_permission(false)
 }

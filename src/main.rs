@@ -29,6 +29,7 @@ use crate::db::PERSISTENT_DB;
 
 struct Bot {
     voicevox: voicevox::Client,
+    prefix: String,
 }
 
 #[async_trait]
@@ -36,10 +37,10 @@ impl EventHandler for Bot {
     async fn ready(&self, ctx: Context, ready: Ready) {
         Command::set_global_application_commands(&ctx.http, |commands| {
             commands
-                .create_application_command(commands::join::register)
-                .create_application_command(commands::left::register)
-                .create_application_command(commands::skip::register)
-                .create_application_command(commands::speaker::register)
+                .create_application_command(|cmd| commands::join::register(&self.prefix, cmd))
+                .create_application_command(|cmd| commands::left::register(&self.prefix, cmd))
+                .create_application_command(|cmd| commands::skip::register(&self.prefix, cmd))
+                .create_application_command(|cmd| commands::speaker::register(&self.prefix, cmd))
         })
         .await
         .unwrap();
@@ -65,12 +66,15 @@ impl EventHandler for Bot {
     }
 
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
+        let prefix = &self.prefix;
         match interaction {
             Interaction::ApplicationCommand(command) => match command.data.name.as_str() {
-                "speaker" => commands::speaker::run(&ctx, command, &self.voicevox).await,
-                "join" => commands::join::run(&ctx, command).await,
-                "left" => commands::left::run(&ctx, command).await,
-                "skip" => commands::skip::run(&ctx, command).await,
+                s if s == format!("{prefix}speaker") => {
+                    commands::speaker::run(&ctx, command, &self.voicevox).await;
+                }
+                s if s == format!("{prefix}join") => commands::join::run(&ctx, command).await,
+                s if s == format!("{prefix}left") => commands::left::run(&ctx, command).await,
+                s if s == format!("{prefix}skip") => commands::skip::run(&ctx, command).await,
                 _ => unreachable!("Unknown command: {}", command.data.name),
             },
             Interaction::MessageComponent(interaction) => {
@@ -113,7 +117,9 @@ async fn main() {
                     .default_headers(default_header)
                     .build()
                     .unwrap(),
-            ).await,
+            )
+            .await,
+            prefix: CONFIG.command_prefix.clone().unwrap_or(String::new()),
         })
         .register_songbird()
         .await

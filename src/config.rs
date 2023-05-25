@@ -8,6 +8,7 @@ pub static CONFIG: Lazy<Config> =
 
 #[derive(Deserialize, Debug)]
 pub struct Config {
+    pub command_prefix: Option<String>,
     pub voicevox_host: String,
     pub discord_token: String,
     pub additional_headers: Option<String>,

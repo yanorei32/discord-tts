@@ -5,8 +5,8 @@ use serenity::{
 
 use crate::commands::simple_resp_helper;
 
-pub fn register(cmd: &mut CreateApplicationCommand) -> &mut CreateApplicationCommand {
-    cmd.name("skip")
+pub fn register<'a>(prefix: &str, cmd: &'a mut CreateApplicationCommand) -> &'a mut CreateApplicationCommand {
+    cmd.name(format!("{prefix}skip"))
         .description("Skip a current message")
         .dm_permission(false)
 }

@@ -5,8 +5,8 @@ use serenity::{
 
 use crate::commands::simple_resp_helper;
 
-pub fn register(cmd: &mut CreateApplicationCommand) -> &mut CreateApplicationCommand {
-    cmd.name("left")
+pub fn register<'a>(prefix: &str, cmd: &'a mut CreateApplicationCommand) -> &'a mut CreateApplicationCommand {
+    cmd.name(format!("{prefix}left"))
         .description("left from VC")
         .dm_permission(false)
 }
