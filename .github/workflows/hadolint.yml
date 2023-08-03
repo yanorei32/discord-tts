@@ -13,7 +13,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3.5.3
       - name: hadolint
-        uses: reviewdog/action-hadolint@v1.34.1
+        uses: reviewdog/action-hadolint@v1.35.0
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           reporter: github-pr-review
