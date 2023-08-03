@@ -26,7 +26,7 @@ RUN cargo build --release
 COPY src/ /usr/src/discord-tts/src/
 RUN touch src/**/* src/* && cargo build --release
 
-FROM debian:bullseye@sha256:432f545c6ba13b79e2681f4cc4858788b0ab099fc1cca799cc0fae4687c69070
+FROM debian:bullseye@sha256:630454da4c59041a2bca987a0d54c68962f1d6ea37a3641bd61db42b753234f2
 
 WORKDIR /init
 COPY init.sh /init/
