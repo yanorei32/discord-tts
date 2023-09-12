@@ -1,8 +1,8 @@
 #!/bin/bash
 set -eux
 
-# depName=debian_11/ca-certificates
-CA_CERTIFICATES_VERSION="20210119"
+# depName=debian_12/ca-certificates
+CA_CERTIFICATES_VERSION="20230311"
 
 apt-get update -qq
 

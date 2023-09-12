@@ -1,10 +1,10 @@
-FROM rust:1.71.1 as build-env
+FROM rust:1.72.0-bookworm as build-env
 LABEL maintainer="yanorei32"
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-# depName=debian_11/cmake
-ENV CMAKE_VERSION="3.18.4-2+deb11u1"
+# depName=debian_12/cmake
+ENV CMAKE_VERSION="3.25.1-1"
 
 RUN apt-get update -qq && apt-get install -qq -y --no-install-recommends \
 	"cmake=$CMAKE_VERSION"
@@ -26,7 +26,7 @@ RUN cargo build --release
 COPY src/ /usr/src/discord-tts/src/
 RUN touch src/**/* src/* && cargo build --release
 
-FROM debian:bullseye@sha256:1beb7cf458bdfe71b5220cb2069eb45e3fc7eb77a1ccfb169eaebf5f6c4809ab
+FROM debian:bookworm-slim@sha256:6f9377128fde3e69e251d0b3c5a7f85f6a20b92ecb81708742c1e153a5c9ce3f
 
 WORKDIR /init
 COPY init.sh /init/
