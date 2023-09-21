@@ -1,5 +1,4 @@
 use std::io::{Read, Result, Seek, SeekFrom};
-use std::slice;
 
 use songbird::input::{reader::MediaSource, Codec, Container, Input, Reader};
 use wav::bit_depth::BitDepth;
@@ -14,11 +13,11 @@ pub fn wav_reader<R: Read + Seek>(reader: &mut R) -> Input {
     )
 }
 
-pub struct WavSource<'a> {
-    iterator: slice::Iter<'a, u8>,
+pub struct WavSource {
+    iterator: std::vec::IntoIter<u8>,
 }
 
-impl<'a> WavSource<'a> {
+impl WavSource {
     pub fn new<R: Seek + Read>(reader: &mut R) -> Self {
         let (_, BitDepth::Sixteen(data)) = wav::read(reader).unwrap() else {
             unimplemented!();
@@ -40,19 +39,19 @@ impl<'a> WavSource<'a> {
 
         let data = unsafe {
             let mut data = std::mem::ManuallyDrop::new(data);
-            slice::from_raw_parts(data.as_mut_ptr().cast::<u8>(), data.len() * 2)
+            Vec::from_raw_parts(data.as_mut_ptr().cast::<u8>(), data.len() * 2, data.capacity() * 2)
         };
 
-        Self { iterator: data.iter() }
+        Self { iterator: data.into_iter() }
     }
 }
 
-impl<'a> Read for WavSource<'a> {
+impl Read for WavSource {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
         let mut len = 0;
 
         for (b, d) in buf.iter_mut().zip(self.iterator.next()) {
-            *b = *d;
+            *b = d;
             len += 1;
         }
 
@@ -60,13 +59,13 @@ impl<'a> Read for WavSource<'a> {
     }
 }
 
-impl<'a> Seek for WavSource<'a> {
+impl Seek for WavSource {
     fn seek(&mut self, _pos: SeekFrom) -> Result<u64> {
         unimplemented!();
     }
 }
 
-impl<'a> MediaSource for WavSource<'a> {
+impl MediaSource for WavSource {
     fn is_seekable(&self) -> bool {
         false
     }
