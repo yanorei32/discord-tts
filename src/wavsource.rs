@@ -13,40 +13,39 @@ pub fn wav_reader<R: Read + Seek>(reader: &mut R) -> Input {
     )
 }
 
-pub struct WavSource {
-    iterator: std::vec::IntoIter<u8>,
+pub struct WavSource<'a> {
+    iterator: Box<dyn Iterator<Item = u8> + 'a>,
 }
 
-impl WavSource {
+fn completion(cum: &mut i16, v: i16) -> Option<[i16; 2]> {
+    let comp = i32::from(*cum) + (i32::from(v) - i32::from(*cum)) / 2;
+    *cum = v;
+
+    #[allow(clippy::cast_possible_truncation)]
+    Some([comp as i16, v])
+}
+
+impl<'a> WavSource<'a> {
     pub fn new<R: Seek + Read>(reader: &mut R) -> Self {
         let (_, BitDepth::Sixteen(data)) = wav::read(reader).unwrap() else {
             unimplemented!();
         };
 
         // 24000Hz -> 48000Hz
-        // TODO: You can save the queue memory half if you move this implementation to the Read.
-        let data: Vec<i16> = data
-            .iter()
-            .scan(0, |cum, v| {
-                let comp = i32::from(*cum) + (i32::from(*v) - i32::from(*cum)) / 2;
-                *cum = *v;
-
-                #[allow(clippy::cast_possible_truncation)]
-                Some([comp as i16, *v])
-            })
-            .flatten()
-            .collect();
-
-        let data = unsafe {
-            let mut data = std::mem::ManuallyDrop::new(data);
-            Vec::from_raw_parts(data.as_mut_ptr().cast::<u8>(), data.len() * 2, data.capacity() * 2)
-        };
-
-        Self { iterator: data.into_iter() }
+        Self {
+            iterator: Box::new(
+                data.clone()
+                    .into_iter()
+                    .scan(0, completion)
+                    .flatten()
+                    .map(i16::to_be_bytes)
+                    .flatten(),
+            ),
+        }
     }
 }
 
-impl Read for WavSource {
+impl<'a> Read for WavSource<'a> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
         let mut len = 0;
 
@@ -59,13 +58,18 @@ impl Read for WavSource {
     }
 }
 
-impl Seek for WavSource {
+impl<'a> Seek for WavSource<'a> {
     fn seek(&mut self, _pos: SeekFrom) -> Result<u64> {
         unimplemented!();
     }
 }
 
-impl MediaSource for WavSource {
+// This impl are required by MediaSource,
+// but this application does not use MediaSource.
+unsafe impl<'a> Send for WavSource<'a> {}
+unsafe impl<'a> Sync for WavSource<'a> {}
+
+impl<'a> MediaSource for WavSource<'a> {
     fn is_seekable(&self) -> bool {
         false
     }
