@@ -52,7 +52,6 @@ impl<'a> Read for WavSource<'a> {
             *b = d;
             len += 1;
         }
-        println!("{:?}", &buf[..len]);
 
         Ok(len)
     }
