@@ -31,14 +31,13 @@ impl<'a> WavSource<'a> {
             unimplemented!();
         };
 
-        // 24000Hz -> 48000Hz
         Self {
             iterator: Box::new(
                 data.clone()
                     .into_iter()
                     .scan(0, completion)
                     .flatten()
-                    .map(i16::to_be_bytes)
+                    .map(i16::to_le_bytes)
                     .flatten(),
             ),
         }
@@ -53,6 +52,7 @@ impl<'a> Read for WavSource<'a> {
             *b = d;
             len += 1;
         }
+        println!("{:?}", &buf[..len]);
 
         Ok(len)
     }
