@@ -18,7 +18,7 @@ pub struct WavSource<'a> {
 }
 
 #[allow(clippy::unnecessary_wraps)]
-fn completion(cum: &mut i16, v: i16) -> Option<[i16; 2]> {
+fn completion_24k_to_48k(cum: &mut i16, v: i16) -> Option<[i16; 2]> {
     let comp = i32::from(*cum) + (i32::from(v) - i32::from(*cum)) / 2;
     *cum = v;
 
@@ -34,9 +34,8 @@ impl<'a> WavSource<'a> {
 
         Self {
             iterator: Box::new(
-                data.clone()
-                    .into_iter()
-                    .scan(0, completion)
+                data.into_iter()
+                    .scan(0, completion_24k_to_48k)
                     .flatten()
                     .flat_map(i16::to_le_bytes),
             ),
