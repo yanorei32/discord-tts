@@ -3,7 +3,7 @@ use serenity::{
     client::Context,
     model::{
         application::interaction::application_command::ApplicationCommandInteraction,
-        prelude::Mentionable,
+        id::ChannelId, prelude::Mentionable, Permissions,
     },
 };
 use songbird::CoreEvent;
@@ -12,37 +12,72 @@ use crate::commands::simple_resp_helper;
 use crate::db::INMEMORY_DB;
 use crate::songbird_handler::DriverDisconnectNotifier;
 
-
-pub fn register<'a>(prefix: &str, cmd: &'a mut CreateApplicationCommand) -> &'a mut CreateApplicationCommand {
+pub fn register<'a>(
+    prefix: &str,
+    cmd: &'a mut CreateApplicationCommand,
+) -> &'a mut CreateApplicationCommand {
     cmd.name(format!("{prefix}join"))
         .description("Join to your channel")
         .dm_permission(false)
 }
 
-pub async fn run(ctx: &Context, interaction: ApplicationCommandInteraction) {
-    let guild = interaction.guild_id.unwrap().to_guild_cached(ctx).unwrap();
+enum JoinError {
+    YouAreNotInVoiceChannel,
+    FailedToJoinVoiceChannel,
+    CannotAccessToTextChannel(ChannelId),
+    CannotAccessToVoiceChannel(ChannelId),
+}
 
-    let Some(Some(connect_to)) = guild.voice_states.get(&interaction.user.id).map(|v| v.channel_id) else {
-        simple_resp_helper(&interaction, ctx, "You can use it only if you are in VC.", true).await;
-        return;
-    };
+impl JoinError {
+    fn to_message(&self) -> String {
+        match self {
+            Self::YouAreNotInVoiceChannel => "You are not in voice channel".to_string(),
+            Self::FailedToJoinVoiceChannel => "Failed to join to voice channel".to_string(),
+            Self::CannotAccessToTextChannel(id) => format!("Cannot access to {}", id.mention()),
+            Self::CannotAccessToVoiceChannel(id) => format!("Cannot access to {}", id.mention()),
+        }
+    }
+}
 
-    let manager = songbird::get(ctx)
-        .await
-        .expect("Songbird is not initialized.");
+async fn run_(
+    ctx: &Context,
+    interaction: &ApplicationCommandInteraction,
+) -> Result<(ChannelId, ChannelId), JoinError> {
+    if !interaction
+        .app_permissions
+        .unwrap()
+        .contains(Permissions::VIEW_CHANNEL)
+    {
+        return Err(JoinError::CannotAccessToTextChannel(interaction.channel_id));
+    }
+
+    let guild = ctx.cache.guild(&interaction.guild_id.unwrap()).unwrap();
+
+    let vc = guild
+        .voice_states
+        .get(&interaction.user.id)
+        .map(|v| ctx.cache.guild_channel(v.channel_id.unwrap()).unwrap())
+        .ok_or(JoinError::YouAreNotInVoiceChannel)?;
+
+    if !vc
+        .permissions_for_user(&ctx.cache, ctx.cache.current_user_id())
+        .unwrap()
+        .contains(Permissions::VIEW_CHANNEL | Permissions::CONNECT | Permissions::SPEAK)
+    {
+        return Err(JoinError::CannotAccessToVoiceChannel(vc.id));
+    }
+
+    let manager = songbird::get(ctx).await.unwrap();
 
     if let Some(h) = manager.get(guild.id) {
-        if h.lock().await.join(connect_to).await.is_err() {
-            simple_resp_helper(&interaction, ctx, "Failed to rejoin to VC.", true).await;
-            return;
-        }
+        h.lock()
+            .await
+            .join(vc.id)
+            .await
+            .map_err(|_| JoinError::FailedToJoinVoiceChannel)?;
     } else {
-        let (h, success) = manager.join(guild.id, connect_to).await;
-
-        if success.is_err() {
-            simple_resp_helper(&interaction, ctx, "Failed to join to VC.", true).await;
-            return;
-        };
+        let (h, success) = manager.join(guild.id, vc.id).await;
+        success.map_err(|_| JoinError::FailedToJoinVoiceChannel)?;
 
         h.lock().await.add_global_event(
             CoreEvent::DriverDisconnect.into(),
@@ -54,15 +89,20 @@ pub async fn run(ctx: &Context, interaction: ApplicationCommandInteraction) {
 
     INMEMORY_DB.store_instance(guild.id, interaction.channel_id);
 
-    simple_resp_helper(
-        &interaction,
-        ctx,
-        &format!(
-            "Linked! {} <-> {}",
-            interaction.channel_id.mention(),
-            connect_to.mention()
-        ),
-        false,
-    )
-    .await;
+    Ok((interaction.channel_id, vc.id))
+}
+
+pub async fn run(ctx: &Context, interaction: ApplicationCommandInteraction) {
+    match run_(ctx, &interaction).await {
+        Ok((text, voice)) => {
+            simple_resp_helper(
+                &interaction,
+                ctx,
+                &format!("Linked! {} <-> {}", text.mention(), voice.mention()),
+                false,
+            )
+            .await
+        }
+        Err(e) => simple_resp_helper(&interaction, ctx, &e.to_message(), true).await,
+    }
 }
