@@ -19,7 +19,7 @@ serenity = { version = "0.11.6", features = ["cache", "client", "voice", "native
 songbird = { version = "0.3.2", features = ["builtin-queue", "serenity-native", "driver"], default-features = false }
 structstruck = "0.4.1"
 tap = "1.0.1"
-tokio = { version = "1.32.0", features = ["macros", "rt-multi-thread", "signal"] }
+tokio = { version = "1.33.0", features = ["macros", "rt-multi-thread", "signal"] }
 tracing = "0.1.37"
 tracing-subscriber = "0.3.17"
 wav = "1.0.0"
