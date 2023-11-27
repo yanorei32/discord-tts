@@ -15,7 +15,7 @@ regex = "1.10.2"
 reqwest = { version = "0.11.22", features = ["native-tls"] , default-features = false }
 serde = { version = "1.0.193" , features = ["derive"] }
 serde_json = "1.0.108"
-serenity = { version = "0.11.7", features = ["cache", "client", "voice", "native_tls_backend"], default-features = false }
+serenity = { version = "0.12.0", features = ["cache", "client", "voice", "native_tls_backend"], default-features = false }
 songbird = { version = "0.3.2", features = ["builtin-queue", "serenity-native", "driver"], default-features = false }
 structstruck = "0.4.1"
 tap = "1.0.1"
