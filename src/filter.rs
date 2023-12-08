@@ -52,7 +52,7 @@ where
         let name = m
             .nick_in(&ctx, mes.guild_id.unwrap())
             .await
-            .unwrap_or(m.name.clone());
+            .unwrap_or(m.global_name.clone().unwrap_or(m.name.clone()));
 
         s = Regex::new(&m.id.mention().to_string())
             .unwrap()
