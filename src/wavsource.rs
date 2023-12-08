@@ -1,20 +1,10 @@
 use std::io::{Read, Result, Seek, SeekFrom};
 
-use songbird::input::{reader::MediaSource, Codec, Container, Input, Reader};
+use symphonia_core::io::MediaSource;
 use wav::bit_depth::BitDepth;
 
-pub fn wav_reader<R: Read + Seek>(reader: &mut R) -> Input {
-    Input::new(
-        false,
-        Reader::Extension(Box::new(WavSource::new(reader))),
-        Codec::Pcm,
-        Container::Raw,
-        None,
-    )
-}
-
 pub struct WavSource<'a> {
-    iterator: Box<dyn Iterator<Item = u8> + 'a>,
+    iterator: Box<dyn Iterator<Item = u8> + 'a + Send + Sync>,
 }
 
 #[allow(clippy::unnecessary_wraps)]
@@ -37,7 +27,7 @@ impl<'a> WavSource<'a> {
                 data.into_iter()
                     .scan(0, completion_24k_to_48k)
                     .flatten()
-                    .flat_map(i16::to_le_bytes),
+                    .flat_map(|v| f32::to_le_bytes(f32::from(v) / f32::from(i16::MAX))),
             ),
         }
     }
@@ -47,7 +37,7 @@ impl<'a> Read for WavSource<'a> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
         let mut len = 0;
 
-        for (b, d) in buf.iter_mut().zip(self.iterator.next()) {
+        for (b, d) in buf.iter_mut().zip(&mut self.iterator) {
             *b = d;
             len += 1;
         }
@@ -61,11 +51,6 @@ impl<'a> Seek for WavSource<'a> {
         unimplemented!();
     }
 }
-
-// This impl are required by MediaSource,
-// but this application does not use MediaSource.
-unsafe impl<'a> Send for WavSource<'a> {}
-unsafe impl<'a> Sync for WavSource<'a> {}
 
 impl<'a> MediaSource for WavSource<'a> {
     fn is_seekable(&self) -> bool {

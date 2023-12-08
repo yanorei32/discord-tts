@@ -15,13 +15,13 @@ use serenity::{
     async_trait,
     client::{Client, Context, EventHandler},
     model::{
-        application::{command::Command, interaction::Interaction},
+        application::{Command, Interaction},
         channel::Message,
         gateway::Ready,
         prelude::GatewayIntents,
     },
 };
-use songbird::{tracks::create_player, SerenityInit};
+use songbird::SerenityInit;
 use tap::Tap;
 
 use crate::config::CONFIG;
@@ -35,13 +35,15 @@ struct Bot {
 #[async_trait]
 impl EventHandler for Bot {
     async fn ready(&self, ctx: Context, ready: Ready) {
-        Command::set_global_application_commands(&ctx.http, |commands| {
-            commands
-                .create_application_command(|cmd| commands::join::register(&self.prefix, cmd))
-                .create_application_command(|cmd| commands::leave::register(&self.prefix, cmd))
-                .create_application_command(|cmd| commands::skip::register(&self.prefix, cmd))
-                .create_application_command(|cmd| commands::speaker::register(&self.prefix, cmd))
-        })
+        Command::set_global_commands(
+            &ctx.http,
+            vec![
+                commands::join::register(&self.prefix),
+                commands::leave::register(&self.prefix),
+                commands::skip::register(&self.prefix),
+                commands::speaker::register(&self.prefix),
+            ],
+        )
         .await
         .unwrap();
 
@@ -54,21 +56,39 @@ impl EventHandler for Bot {
         };
 
         let speaker = PERSISTENT_DB.get_speaker_id(msg.author.id);
-        let mut wav = Cursor::new(self.voicevox.tts(&content, speaker).await);
-        let (audio, _handle) = create_player(wavsource::wav_reader(&mut wav));
 
         let manager = songbird::get(&ctx)
             .await
             .expect("Songbird is not initialized");
 
         let handler = manager.get(msg.guild_id.unwrap()).unwrap();
-        handler.lock().await.enqueue(audio);
+
+        let wav = match self.voicevox.tts(&content, speaker).await {
+            Ok(v) => v,
+            Err(_) => {
+                msg.reply(&ctx.http, "Error: Failed to synthesise a message").await.unwrap();
+                return;
+            },
+        };
+
+        handler
+            .lock()
+            .await
+            .enqueue_input(
+                songbird::input::RawAdapter::new(
+                    wavsource::WavSource::new(&mut Cursor::new(wav)),
+                    48000,
+                    1,
+                )
+                .into(),
+            )
+            .await;
     }
 
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
         let prefix = &self.prefix;
         match interaction {
-            Interaction::ApplicationCommand(command) => match command.data.name.as_str() {
+            Interaction::Command(command) => match command.data.name.as_str() {
                 s if s == format!("{prefix}speaker") => {
                     commands::speaker::run(&ctx, command, &self.voicevox).await;
                 }
@@ -77,7 +97,7 @@ impl EventHandler for Bot {
                 s if s == format!("{prefix}skip") => commands::skip::run(&ctx, command).await,
                 _ => unreachable!("Unknown command: {}", command.data.name),
             },
-            Interaction::MessageComponent(interaction) => {
+            Interaction::Component(interaction) => {
                 commands::speaker::update(&ctx, interaction, &self.voicevox).await;
             }
             _ => {}
@@ -119,7 +139,7 @@ async fn main() {
                     .unwrap(),
             )
             .await,
-            prefix: CONFIG.command_prefix.clone().unwrap_or(String::new()),
+            prefix: CONFIG.command_prefix.clone().unwrap_or_default(),
         })
         .register_songbird()
         .await

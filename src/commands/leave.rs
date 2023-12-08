@@ -1,17 +1,14 @@
-use serenity::{
-    builder::CreateApplicationCommand, client::Context,
-    model::application::interaction::application_command::ApplicationCommandInteraction,
-};
+use serenity::{builder::CreateCommand, client::Context, model::application::CommandInteraction};
 
 use crate::commands::simple_resp_helper;
 
-pub fn register<'a>(prefix: &str, cmd: &'a mut CreateApplicationCommand) -> &'a mut CreateApplicationCommand {
-    cmd.name(format!("{prefix}leave"))
+pub fn register(prefix: &str) -> CreateCommand {
+    CreateCommand::new(format!("{prefix}leave"))
         .description("Leave from VC")
         .dm_permission(false)
 }
 
-pub async fn run(ctx: &Context, interaction: ApplicationCommandInteraction) {
+pub async fn run(ctx: &Context, interaction: CommandInteraction) {
     let guild_id = interaction.guild_id.unwrap();
 
     let manager = songbird::get(ctx)

@@ -7,7 +7,6 @@ use reqwest::{header::CONTENT_TYPE, Url};
 use tap::prelude::*;
 
 use crate::voicevox::model::{Speaker, SpeakerStyle};
-
 use self::model::SpeakerStyleView;
 
 pub mod model;
@@ -105,10 +104,7 @@ impl Client {
         }
     }
 
-    pub fn query_style_by_id(
-        &self,
-        speaker_id: model::SpeakerId,
-    ) -> Option<SpeakerStyleView<'_>> {
+    pub fn query_style_by_id(&self, speaker_id: model::SpeakerId) -> Option<SpeakerStyleView<'_>> {
         for (speaker_i, speaker) in self.inner.speakers.iter().enumerate() {
             for (style_i, style) in speaker.styles.iter().enumerate() {
                 if style.id != speaker_id {
@@ -135,7 +131,7 @@ impl Client {
         &self.inner.speakers
     }
 
-    pub async fn tts(&self, text: &str, speaker_id: model::SpeakerId) -> Bytes {
+    pub async fn tts(&self, text: &str, speaker_id: model::SpeakerId) -> Result<Bytes, ()> {
         let url = self.inner.host.clone().tap_mut(|u| {
             u.path_segments_mut().unwrap().push("audio_query");
             u.query_pairs_mut()
@@ -144,8 +140,13 @@ impl Client {
                 .append_pair("speaker", &speaker_id.to_string());
         });
 
-        let resp = self.inner.client.post(url).send().await.unwrap();
-        let query_text = resp.text().await.unwrap();
+        let resp = self.inner.client.post(url).send().await.map_err(|_| ())?;
+        let query_text = resp
+            .error_for_status()
+            .map_err(|_| ())?
+            .text()
+            .await
+            .map_err(|_| ())?;
 
         let url = self.inner.host.clone().tap_mut(|u| {
             u.path_segments_mut().unwrap().push("synthesis");
@@ -162,8 +163,10 @@ impl Client {
             .body(query_text)
             .send()
             .await
-            .unwrap();
+            .map_err(|_| ())?
+            .error_for_status()
+            .map_err(|_| ())?;
 
-        resp.bytes().await.unwrap()
+        Ok(resp.bytes().await.unwrap())
     }
 }

@@ -1,11 +1,8 @@
 use serenity::{
+    all::InteractionResponseFlags,
+    builder::{CreateInteractionResponse, CreateInteractionResponseMessage},
     client::Context,
-    model::{
-        application::interaction::{
-            application_command::ApplicationCommandInteraction, InteractionResponseType,
-        },
-        prelude::interaction::MessageFlags,
-    },
+    model::application::CommandInteraction,
 };
 
 pub mod join;
@@ -14,22 +11,24 @@ pub mod skip;
 pub mod speaker;
 
 async fn simple_resp_helper(
-    interaction: &ApplicationCommandInteraction,
+    interaction: &CommandInteraction,
     ctx: &Context,
     text: &str,
     is_ephemeral: bool,
 ) {
     interaction
-        .create_interaction_response(ctx, |resp| {
-            resp.kind(InteractionResponseType::ChannelMessageWithSource)
-                .interaction_response_data(|mes| {
-                    mes.content(text.to_string()).flags(if is_ephemeral {
-                        MessageFlags::EPHEMERAL
+        .create_response(
+            ctx,
+            CreateInteractionResponse::Message(
+                CreateInteractionResponseMessage::new()
+                    .content(text.to_string())
+                    .flags(if is_ephemeral {
+                        InteractionResponseFlags::EPHEMERAL
                     } else {
-                        MessageFlags::empty()
-                    })
-                })
-        })
+                        InteractionResponseFlags::empty()
+                    }),
+            ),
+        )
         .await
         .expect("Failed to write response");
 }

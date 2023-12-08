@@ -1,10 +1,7 @@
 use serenity::{
-    builder::CreateApplicationCommand,
+    builder::CreateCommand,
     client::Context,
-    model::{
-        application::interaction::application_command::ApplicationCommandInteraction,
-        id::ChannelId, prelude::Mentionable, Permissions,
-    },
+    model::{application::CommandInteraction, id::ChannelId, prelude::Mentionable, Permissions},
 };
 use songbird::CoreEvent;
 
@@ -12,15 +9,13 @@ use crate::commands::simple_resp_helper;
 use crate::db::INMEMORY_DB;
 use crate::songbird_handler::DriverDisconnectNotifier;
 
-pub fn register<'a>(
-    prefix: &str,
-    cmd: &'a mut CreateApplicationCommand,
-) -> &'a mut CreateApplicationCommand {
-    cmd.name(format!("{prefix}join"))
+pub fn register(prefix: &str) -> CreateCommand {
+    CreateCommand::new(format!("{prefix}join"))
         .description("Join to your channel")
         .dm_permission(false)
 }
 
+#[allow(clippy::enum_variant_names)]
 enum JoinError {
     YouAreNotInVoiceChannel,
     FailedToJoinVoiceChannel,
@@ -33,15 +28,16 @@ impl JoinError {
         match self {
             Self::YouAreNotInVoiceChannel => "You are not in voice channel".to_string(),
             Self::FailedToJoinVoiceChannel => "Failed to join to voice channel".to_string(),
-            Self::CannotAccessToTextChannel(id) => format!("Cannot access to {}", id.mention()),
-            Self::CannotAccessToVoiceChannel(id) => format!("Cannot access to {}", id.mention()),
+            Self::CannotAccessToTextChannel(id) | Self::CannotAccessToVoiceChannel(id) => {
+                format!("Cannot access to {}", id.mention())
+            }
         }
     }
 }
 
 async fn run_(
     ctx: &Context,
-    interaction: &ApplicationCommandInteraction,
+    interaction: &CommandInteraction,
 ) -> Result<(ChannelId, ChannelId), JoinError> {
     if !interaction
         .app_permissions
@@ -51,16 +47,20 @@ async fn run_(
         return Err(JoinError::CannotAccessToTextChannel(interaction.channel_id));
     }
 
-    let guild = ctx.cache.guild(&interaction.guild_id.unwrap()).unwrap();
+    let guild = ctx
+        .cache
+        .guild(interaction.guild_id.unwrap())
+        .unwrap()
+        .clone();
 
     let vc = guild
         .voice_states
         .get(&interaction.user.id)
-        .map(|v| ctx.cache.guild_channel(v.channel_id.unwrap()).unwrap())
+        .map(|v| ctx.cache.channel(v.channel_id.unwrap()).unwrap().clone())
         .ok_or(JoinError::YouAreNotInVoiceChannel)?;
 
     if !vc
-        .permissions_for_user(&ctx.cache, ctx.cache.current_user_id())
+        .permissions_for_user(&ctx.cache, ctx.cache.current_user().id)
         .unwrap()
         .contains(Permissions::VIEW_CHANNEL | Permissions::CONNECT | Permissions::SPEAK)
     {
@@ -76,8 +76,10 @@ async fn run_(
             .await
             .map_err(|_| JoinError::FailedToJoinVoiceChannel)?;
     } else {
-        let (h, success) = manager.join(guild.id, vc.id).await;
-        success.map_err(|_| JoinError::FailedToJoinVoiceChannel)?;
+        let h = manager
+            .join(guild.id, vc.id)
+            .await
+            .map_err(|_| JoinError::FailedToJoinVoiceChannel)?;
 
         h.lock().await.add_global_event(
             CoreEvent::DriverDisconnect.into(),
@@ -92,7 +94,7 @@ async fn run_(
     Ok((interaction.channel_id, vc.id))
 }
 
-pub async fn run(ctx: &Context, interaction: ApplicationCommandInteraction) {
+pub async fn run(ctx: &Context, interaction: CommandInteraction) {
     match run_(ctx, &interaction).await {
         Ok((text, voice)) => {
             simple_resp_helper(
@@ -101,7 +103,7 @@ pub async fn run(ctx: &Context, interaction: ApplicationCommandInteraction) {
                 &format!("Linked! {} <-> {}", text.mention(), voice.mention()),
                 false,
             )
-            .await
+            .await;
         }
         Err(e) => simple_resp_helper(&interaction, ctx, &e.to_message(), true).await,
     }
