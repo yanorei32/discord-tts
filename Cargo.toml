@@ -17,7 +17,7 @@ serde = { version = "1.0.197" , features = ["derive"] }
 serde_json = "1.0.114"
 serenity = { version = "0.12.1", features = ["cache", "client", "voice", "native_tls_backend"], default-features = false }
 songbird = { version = "0.4.0", features = ["builtin-queue", "gateway", "serenity", "driver", "native"], default-features = false }
-symphonia = { version = "0.5.3", features = ["pcm"], default-features = false }
+symphonia = { version = "0.5.4", features = ["pcm"], default-features = false }
 symphonia-core = { version = "0.5.4" }
 structstruck = "0.4.1"
 tap = "1.0.1"
