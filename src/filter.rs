@@ -34,8 +34,8 @@ where
     let s = legacy_command_compatibility(&s)?;
     let s = legacy_ping_command_compatibility(s)?;
     let s = suppress_by_semicolon(s)?;
-    let s = replace_emoji(s);
-    let s = replace_uri(&s);
+    let s = replace_uri(s);
+    let s = replace_emoji(&s);
     let s = replace_codeblock(&s);
     let s = suppress_whitespaces(&s)?;
 
