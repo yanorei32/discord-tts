@@ -16,7 +16,7 @@ use crate::db::INMEMORY_DB;
 static CHANNEL_MENTION_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"<#(?<id>\d+)>").unwrap());
 static CODEBLOCK_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?sm)```.+```").unwrap());
 static EMOJI_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"(<a?:\w+:\d+>|:\w+:)").unwrap());
-static URI_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"\S+:\S+").unwrap());
+static URI_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"[A-Za-z][A-Za-z0-9+\-.]*:\S+").unwrap());
 
 pub async fn filter<T>(ctx: T, mes: &'_ Message) -> Option<String>
 where
@@ -130,6 +130,7 @@ fn replace_rule_unit_test() {
 
     assert_eq!(replace_uri("hello"), "hello");
     assert_eq!(replace_uri("ms-settings:privacy-microphone"), "。URI省略。");
+    assert_eq!(replace_uri("some.strange-protocol+ver2:pathpathpath"), "。URI省略。");
     assert_eq!(
         replace_uri("そこから ms-settings:privacy-microphone を開いて"),
         "そこから 。URI省略。 を開いて"
