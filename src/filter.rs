@@ -131,6 +131,8 @@ fn replace_rule_unit_test() {
     assert_eq!(replace_uri("hello"), "hello");
     assert_eq!(replace_uri("ms-settings:privacy-microphone"), "。URI省略。");
     assert_eq!(replace_uri("some.strange-protocol+ver2:pathpathpath"), "。URI省略。");
+    assert_eq!(replace_uri("20:40に秋葉原にて待つ"), "20:40に秋葉原にて待つ");
+    assert_eq!(replace_uri("abc,def://nyan.com:22/mofu"), "abc,。URI省略。");
     assert_eq!(
         replace_uri("そこから ms-settings:privacy-microphone を開いて"),
         "そこから 。URI省略。 を開いて"
