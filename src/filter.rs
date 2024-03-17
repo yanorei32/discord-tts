@@ -15,7 +15,8 @@ use crate::db::INMEMORY_DB;
 #[allow(clippy::invalid_regex)]
 static CHANNEL_MENTION_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"<#(?<id>\d+)>").unwrap());
 static CODEBLOCK_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?sm)```.+```").unwrap());
-static EMOJI_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"(<a?:\w+:\d+>|:\w+:)").unwrap());
+static EXTERNAL_EMOJI_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"<a?:\w+:\d+>").unwrap());
+static EMOJI_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r":\w+:").unwrap());
 static URI_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"[A-Za-z][A-Za-z0-9+\-.]*:\S+").unwrap());
 
 pub async fn filter<T>(ctx: T, mes: &'_ Message) -> Option<String>
@@ -34,8 +35,20 @@ where
     let s = legacy_command_compatibility(&s)?;
     let s = legacy_ping_command_compatibility(s)?;
     let s = suppress_by_semicolon(s)?;
+
+    // `<a:emoji_identifier:123456789>` should be treated as a single emoji and not `<a:emoji_。URI省略。>`,
+    // so replace_external_emoji must precede replace_uri.
+    // On the other hand, `protocol:host:23` should be treated as a `。URI省略。` and not `protocol23` (:host: replaced by `replace_emoji`),
+    // so replace_uri must precede replace_emoji.
+    //
+    // The order `replace_external_emoji` -> `replace_uri` -> `replace_emoji` rests upon the observation that
+    // an external_emoji cannot be a part of an URI (since an URI cannot contain a letter "<", as per RFC3986),
+    // and the design decision that we want to treat a string like `<a:crime:1238318711>` as a single `external_emoji` and not
+    // `<。URI省略。>` or `<a:。URI省略。>`. I mean, why would anyone enclose a strange URI within a pair of angle brackets?
+    let s = replace_external_emoji(&s);
     let s = replace_uri(s);
     let s = replace_emoji(&s);
+
     let s = replace_codeblock(&s);
     let s = suppress_whitespaces(&s)?;
 
@@ -107,6 +120,11 @@ fn replace_uri(mes: &str) -> Cow<'_, str> {
 }
 
 #[inline]
+fn replace_external_emoji(mes: &str) -> Cow<'_, str> {
+    EXTERNAL_EMOJI_REGEX.replace_all(mes, "")
+}
+
+#[inline]
 fn replace_emoji(mes: &str) -> Cow<'_, str> {
     EMOJI_REGEX.replace_all(mes, "")
 }
@@ -144,7 +162,7 @@ fn replace_rule_unit_test() {
 
     assert_eq!(replace_emoji("hello!"), "hello!");
     assert_eq!(replace_emoji("hello:emoji:!"), "hello!");
-    assert_eq!(replace_emoji("hello<:emoji:012345678901234567>!"), "hello!");
+    assert_eq!(replace_external_emoji("hello<:emoji:012345678901234567>!"), "hello!");
 
     assert_eq!(
         replace_codeblock("Codeblock ```Inline``` !"),
