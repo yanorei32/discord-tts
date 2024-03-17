@@ -45,8 +45,8 @@ where
     // an external_emoji cannot be a part of an URI (since an URI cannot contain a letter "<", as per RFC3986),
     // and the design decision that we want to treat a string like `<a:crime:1238318711>` as a single `external_emoji` and not
     // `<。URI省略。>` or `<a:。URI省略。>`. I mean, why would anyone enclose a strange URI within a pair of angle brackets?
-    let s = replace_external_emoji(&s);
-    let s = replace_uri(s);
+    let s = replace_external_emoji(s);
+    let s = replace_uri(&s);
     let s = replace_emoji(&s);
 
     let s = replace_codeblock(&s);
