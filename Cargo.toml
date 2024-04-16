@@ -13,7 +13,7 @@ futures = "0.3.30"
 once_cell = "1.19.0"
 regex = "1.10.4"
 reqwest = { version = "0.12.3", features = ["native-tls", "json"] , default-features = false }
-serde = { version = "1.0.197" , features = ["derive"] }
+serde = { version = "1.0.198" , features = ["derive"] }
 serde_json = "1.0.116"
 serenity = { version = "0.12.1", features = ["cache", "client", "voice", "native_tls_backend"], default-features = false }
 songbird = { version = "0.4.1", features = ["builtin-queue", "gateway", "serenity", "driver", "native"], default-features = false }
