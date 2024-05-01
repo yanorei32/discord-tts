@@ -73,9 +73,12 @@ where
             .to_string();
     }
 
+    let guild = mes.guild(&ctx.cache().unwrap()).unwrap();
+
     for m in &mes.mention_roles {
         let re = Regex::new(&m.mention().to_string()).unwrap();
-        let name = m.to_role_cached(&ctx).unwrap().name;
+        let name = guild.roles.get(&m).unwrap().name.as_str();
+
         s = re.replace_all(&s, format!("。宛、{name}。")).to_string();
     }
 
@@ -87,7 +90,7 @@ where
 
     for m in &channel_mentions {
         let re = Regex::new(&m.mention().to_string()).unwrap();
-        let name = m.name(&ctx).await.unwrap();
+        let name = guild.channels.get(&m).unwrap();
         s = re.replace_all(&s, format!("。宛、{name}。")).to_string();
     }
 
@@ -148,8 +151,14 @@ fn replace_rule_unit_test() {
 
     assert_eq!(replace_uri("hello"), "hello");
     assert_eq!(replace_uri("ms-settings:privacy-microphone"), "。URI省略。");
-    assert_eq!(replace_uri("some.strange-protocol+ver2:pathpathpath"), "。URI省略。");
-    assert_eq!(replace_uri("20:40に秋葉原にて待つ"), "20:40に秋葉原にて待つ");
+    assert_eq!(
+        replace_uri("some.strange-protocol+ver2:pathpathpath"),
+        "。URI省略。"
+    );
+    assert_eq!(
+        replace_uri("20:40に秋葉原にて待つ"),
+        "20:40に秋葉原にて待つ"
+    );
     assert_eq!(replace_uri("abc,def://nyan.com:22/mofu"), "abc,。URI省略。");
     assert_eq!(
         replace_uri("そこから ms-settings:privacy-microphone を開いて"),
@@ -162,7 +171,10 @@ fn replace_rule_unit_test() {
 
     assert_eq!(replace_emoji("hello!"), "hello!");
     assert_eq!(replace_emoji("hello:emoji:!"), "hello!");
-    assert_eq!(replace_external_emoji("hello<:emoji:012345678901234567>!"), "hello!");
+    assert_eq!(
+        replace_external_emoji("hello<:emoji:012345678901234567>!"),
+        "hello!"
+    );
 
     assert_eq!(
         replace_codeblock("Codeblock ```Inline``` !"),
