@@ -61,19 +61,22 @@ where
 {
     let mut s = mes.content.to_string();
 
+    let guild = mes.guild(&ctx.cache().unwrap()).unwrap();
+
     for m in &mes.mentions {
-        let name = m
-            .nick_in(&ctx, mes.guild_id.unwrap())
-            .await
-            .unwrap_or(m.global_name.clone().unwrap_or(m.name.clone()));
+        let name = guild
+            .members
+            .get(&m.id)
+            .unwrap()
+            .nick
+            .as_ref()
+            .unwrap_or(m.global_name.as_ref().unwrap_or(&m.name));
 
         s = Regex::new(&m.id.mention().to_string())
             .unwrap()
             .replace_all(&s, format!("。宛、{name}。"))
             .to_string();
     }
-
-    let guild = mes.guild(&ctx.cache().unwrap()).unwrap();
 
     for m in &mes.mention_roles {
         let re = Regex::new(&m.mention().to_string()).unwrap();
