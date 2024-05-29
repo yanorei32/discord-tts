@@ -1,7 +1,7 @@
 use std::io::{Read, Result, Seek, SeekFrom};
 
+use hound::WavReader;
 use symphonia_core::io::MediaSource;
-use wav::bit_depth::BitDepth;
 
 pub struct WavSource<'a> {
     iterator: Box<dyn Iterator<Item = u8> + 'a + Send + Sync>,
@@ -18,9 +18,11 @@ fn completion_24k_to_48k(cum: &mut i16, v: i16) -> Option<[i16; 2]> {
 
 impl<'a> WavSource<'a> {
     pub fn new<R: Seek + Read>(reader: &mut R) -> Self {
-        let (_, BitDepth::Sixteen(data)) = wav::read(reader).unwrap() else {
-            unimplemented!();
-        };
+        let data: Vec<i16> = WavReader::new(reader)
+            .unwrap()
+            .samples()
+            .map(|v| v.unwrap())
+            .collect();
 
         Self {
             iterator: Box::new(
