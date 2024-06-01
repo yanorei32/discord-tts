@@ -20,5 +20,5 @@ pub async fn run(ctx: &Context, interaction: CommandInteraction) {
         return;
     };
 
-    simple_resp_helper(&interaction, ctx, "Leaved!", false).await;
+    simple_resp_helper(&interaction, ctx, "Connection has been closed.", false).await;
 }
