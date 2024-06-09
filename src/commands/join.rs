@@ -56,7 +56,7 @@ async fn run_(
     let vc = guild
         .voice_states
         .get(&interaction.user.id)
-        .map(|v| ctx.cache.channel(v.channel_id.unwrap()).unwrap().clone())
+        .map(|v| guild.channels.get(&v.channel_id.unwrap()).unwrap().clone())
         .ok_or(JoinError::YouAreNotInVoiceChannel)?;
 
     if !vc
