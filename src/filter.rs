@@ -72,17 +72,13 @@ where
             .as_ref()
             .unwrap_or(m.global_name.as_ref().unwrap_or(&m.name));
 
-        s = Regex::new(&m.id.mention().to_string())
-            .unwrap()
-            .replace_all(&s, format!("。宛、{name}。"))
-            .to_string();
+        s = s.replace(&m.id.mention().to_string(), &format!("。宛、{name}。"));
     }
 
     for m in &mes.mention_roles {
-        let re = Regex::new(&m.mention().to_string()).unwrap();
         let name = guild.roles.get(&m).unwrap().name.as_str();
 
-        s = re.replace_all(&s, format!("。宛、{name}。")).to_string();
+        s = s.replace(&m.mention().to_string(), &format!("。宛、{name}。"));
     }
 
     let channel_mentions: Vec<ChannelId> = CHANNEL_MENTION_REGEX
@@ -92,9 +88,8 @@ where
         .collect();
 
     for m in &channel_mentions {
-        let re = Regex::new(&m.mention().to_string()).unwrap();
-        let name = guild.channels.get(&m).unwrap();
-        s = re.replace_all(&s, format!("。宛、{name}。")).to_string();
+        let name = guild.channels.get(&m).unwrap().name();
+        s = s.replace(&m.mention().to_string(), &format!("。宛、{name}。"));
     }
 
     s
