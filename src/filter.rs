@@ -59,17 +59,16 @@ where
 
 fn append_image_attachment_notification(body: &str, image_count: usize) -> Cow<'_, str> {
     if image_count > 0 {
-        const IMAGE: &str = "画像";
+        const IMAGE_WITH_COMMAS: &str = "画像、";
         // 一応pre-allocate
-        let mut ret = String::with_capacity(body.len() + 1 + (IMAGE.len() + "、".len()) * (image_count - 1));
+        let mut ret = String::with_capacity(body.len() + 1 + (IMAGE_WITH_COMMAS.len()) * (image_count - 1));
         ret.push_str(body);
         if !body.is_empty() {
             ret.push(' ');
         }
 
         for _ in 0..(image_count - 1) {
-            ret.push_str(IMAGE);
-            ret.push_str("、");
+            ret.push_str(IMAGE_WITH_COMMAS);
         }
 
         if body.is_empty() {
