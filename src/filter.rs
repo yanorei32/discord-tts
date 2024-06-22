@@ -9,7 +9,7 @@ use serenity::{
     prelude::Mentionable,
 };
 
-use crate::db::INMEMORY_DB;
+use crate::db::{EMOJI_DB, INMEMORY_DB};
 
 // regex crate's named capture
 #[allow(clippy::invalid_regex)]
@@ -48,6 +48,7 @@ where
     let s = replace_external_emoji(s);
     let s = replace_uri(&s);
     let s = replace_emoji(&s);
+    let s = replace_unicode_emoji(&s);
     // Attachment::dimensions: If this attachment is an image, then a tuple of the width and height in pixels is returned.
     let s = append_image_attachment_notification(&s, mes.attachments.iter().filter_map(|a| a.dimensions()).count());
 
@@ -162,6 +163,17 @@ fn replace_emoji(mes: &str) -> Cow<'_, str> {
 #[inline]
 fn replace_codeblock(mes: &str) -> Cow<'_, str> {
     CODEBLOCK_REGEX.replace_all(mes, "。コード省略。")
+}
+
+#[inline]
+fn replace_unicode_emoji(mes: &str) -> String {
+    let mut s = mes.to_string();
+
+    for (word, replacement) in EMOJI_DB.get_dictionary().as_ref() {
+        s = s.replace(word.as_str(), replacement.as_str());
+    }
+
+    s
 }
 
 #[test]

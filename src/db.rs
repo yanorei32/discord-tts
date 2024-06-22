@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, Write};
 use std::path::{Path, PathBuf};
-use std::sync::RwLock;
+use std::sync::{Arc, RwLock};
 
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
@@ -105,5 +105,40 @@ impl InmemoryDB {
 
     pub fn destroy_instance(&self, guild_id: GuildId) {
         self.data.write().unwrap().instances.remove(&guild_id);
+    }
+}
+
+pub static EMOJI_DB: Lazy<EmojiDB> = Lazy::new(|| {
+    EmojiDB::new().expect("Failed to initialize emoji DB")
+});
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct EmojiStructure {
+    short_name: String,
+}
+
+pub struct EmojiDB {
+    data: Arc<HashMap<String, String>>,
+}
+
+impl EmojiDB {
+    fn new() -> Result<Self, std::io::Error> {
+        let json: HashMap<String, EmojiStructure> =
+            serde_json::from_str(include_str!("../assets/emoji_ja.json"))
+                .expect("Emoji DB is corrupted");
+
+        let data = Arc::new(
+            json.iter()
+                .map(|(key, value)| (key.clone(), value.short_name.clone()))
+                .collect(),
+        );
+
+        Ok(Self {
+            data,
+        })
+    }
+
+    pub fn get_dictionary(&self) -> Arc<HashMap<String, String>> {
+        self.data.clone()
     }
 }
