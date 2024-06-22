@@ -57,30 +57,30 @@ where
     Some(s.to_string())
 }
 
-fn append_image_attachment_notification(p0: &str, image_count: usize) -> Cow<'_, str> {
+fn append_image_attachment_notification(body: &str, image_count: usize) -> Cow<'_, str> {
     if image_count > 0 {
         const IMAGE: &str = "画像";
         // 一応pre-allocate
-        let mut a = String::with_capacity(p0.len() + 1 + (IMAGE.len() + "、".len()) * (image_count - 1));
-        a.push_str(p0);
-        if !p0.is_empty() {
-            a.push(' ');
+        let mut ret = String::with_capacity(body.len() + 1 + (IMAGE.len() + "、".len()) * (image_count - 1));
+        ret.push_str(body);
+        if !body.is_empty() {
+            ret.push(' ');
         }
 
         for _ in 0..(image_count - 1) {
-            a.push_str(IMAGE);
-            a.push_str("、");
+            ret.push_str(IMAGE);
+            ret.push_str("、");
         }
 
-        if p0.is_empty() {
-            a.push_str("画像が送信されました");
+        if body.is_empty() {
+            ret.push_str("画像が送信されました");
         } else {
-            a.push_str("画像添付");
+            ret.push_str("画像添付");
         }
 
-        a.into()
+        ret.into()
     } else {
-        p0.into()
+        body.into()
     }
 }
 
