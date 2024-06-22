@@ -229,10 +229,10 @@ fn replace_rule_unit_test() {
     );
     assert_eq!(
         append_image_attachment_notification("あ", 1),
-        "あ 画像添付"
+        "あ。画像添付"
     );
     assert_eq!(
         append_image_attachment_notification("あ", 4),
-        "あ 画像、画像、画像、画像添付"
+        "あ。画像、画像、画像、画像添付"
     );
 }
