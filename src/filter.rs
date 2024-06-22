@@ -65,7 +65,7 @@ fn append_image_attachment_notification(body: &str, image_count: usize) -> Cow<'
         let mut ret = String::with_capacity(body.len() + 1 + (IMAGE_WITH_COMMAS.len()) * (image_count - 1) + SENT_ON_BLANK.len());
         ret.push_str(body);
         if !body.is_empty() {
-            ret.push(' ');
+            ret.push('。');
         }
 
         for _ in 0..(image_count - 1) {
