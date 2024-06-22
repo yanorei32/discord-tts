@@ -48,7 +48,8 @@ where
     let s = replace_external_emoji(s);
     let s = replace_uri(&s);
     let s = replace_emoji(&s);
-    let s = append_image_attachment_notification(&s, mes.attachments.len());
+    // Attachment::dimensions: If this attachment is an image, then a tuple of the width and height in pixels is returned.
+    let s = append_image_attachment_notification(&s, mes.attachments.iter().filter_map(|a| a.dimensions()).count());
 
     let s = replace_codeblock(&s);
     let s = suppress_whitespaces(&s)?;
