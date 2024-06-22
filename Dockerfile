@@ -24,6 +24,7 @@ RUN	cargo install cargo-license && cargo license \
 
 RUN cargo build --release
 COPY src/ /usr/src/discord-tts/src/
+COPY assets/ /usr/src/discord-tts/assets/
 RUN touch src/**/* src/* && cargo build --release
 
 FROM debian:bookworm-slim@sha256:911821c26cc366231183098f489068afff2d55cf56911cb5b7bd32796538dfe1
