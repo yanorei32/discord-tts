@@ -48,11 +48,39 @@ where
     let s = replace_external_emoji(s);
     let s = replace_uri(&s);
     let s = replace_emoji(&s);
+    let s = append_image_attachment_notification(&s, mes.attachments.len());
 
     let s = replace_codeblock(&s);
     let s = suppress_whitespaces(&s)?;
 
     Some(s.to_string())
+}
+
+fn append_image_attachment_notification(p0: &str, image_count: usize) -> Cow<'_, str> {
+    if image_count > 0 {
+        const IMAGE: &str = "画像";
+        // 一応pre-allocate
+        let mut a = String::with_capacity(p0.len() + 1 + (IMAGE.len() + "、".len()) * (image_count - 1));
+        a.push_str(p0);
+        if !p0.is_empty() {
+            a.push(' ');
+        }
+
+        for _ in 0..(image_count - 1) {
+            a.push_str(IMAGE);
+            a.push_str("、");
+        }
+
+        if p0.is_empty() {
+            a.push_str("画像が送信されました");
+        } else {
+            a.push_str("画像添付");
+        }
+
+        a.into()
+    } else {
+        p0.into()
+    }
 }
 
 async fn sanity_mention<T>(ctx: T, mes: &Message) -> String
@@ -181,5 +209,29 @@ fn replace_rule_unit_test() {
     assert_eq!(
         replace_codeblock("Codeblock\n```\nMultiline\n```\n!"),
         "Codeblock\n。コード省略。\n!"
+    );
+    assert_eq!(
+        append_image_attachment_notification("", 0),
+        ""
+    );
+    assert_eq!(
+        append_image_attachment_notification("", 1),
+        "画像が送信されました"
+    );
+    assert_eq!(
+        append_image_attachment_notification("", 4),
+        "画像、画像、画像、画像が送信されました"
+    );
+    assert_eq!(
+        append_image_attachment_notification("あ", 0),
+        "あ"
+    );
+    assert_eq!(
+        append_image_attachment_notification("あ", 1),
+        "あ 画像添付"
+    );
+    assert_eq!(
+        append_image_attachment_notification("あ", 4),
+        "あ 画像、画像、画像、画像添付"
     );
 }
