@@ -21,6 +21,7 @@ RUN	cargo install cargo-license && cargo license \
 	--avoid-build-deps \
 	--filter-platform "$(rustc -vV | sed -n 's|host: ||p')" \
 	> CREDITS
+RUN echo 'emoji-ja: 94e387b36d2edd1239f3a2b8ca1324b963596855, "MIT", by, yag_ays' >> CREDITS
 
 RUN cargo build --release
 COPY src/ /usr/src/discord-tts/src/
