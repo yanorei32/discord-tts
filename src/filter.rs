@@ -48,11 +48,40 @@ where
     let s = replace_external_emoji(s);
     let s = replace_uri(&s);
     let s = replace_emoji(&s);
+    // Attachment::dimensions: If this attachment is an image, then a tuple of the width and height in pixels is returned.
+    let s = append_image_attachment_notification(&s, mes.attachments.iter().filter_map(|a| a.dimensions()).count());
 
     let s = replace_codeblock(&s);
     let s = suppress_whitespaces(&s)?;
 
     Some(s.to_string())
+}
+
+fn append_image_attachment_notification(body: &str, image_count: usize) -> Cow<'_, str> {
+    if image_count > 0 {
+        const IMAGE_WITH_COMMAS: &str = "画像、";
+        const SENT_ON_BLANK: &str = "画像が送信されました";
+        // 一応pre-allocate
+        let mut ret = String::with_capacity(body.len() + "。".len() + (IMAGE_WITH_COMMAS.len()) * (image_count - 1) + SENT_ON_BLANK.len());
+        ret.push_str(body);
+        if !body.is_empty() {
+            ret.push('。');
+        }
+
+        for _ in 0..(image_count - 1) {
+            ret.push_str(IMAGE_WITH_COMMAS);
+        }
+
+        if body.is_empty() {
+            ret.push_str(SENT_ON_BLANK);
+        } else {
+            ret.push_str("画像添付");
+        }
+
+        ret.into()
+    } else {
+        body.into()
+    }
 }
 
 async fn sanity_mention<T>(ctx: T, mes: &Message) -> String
@@ -181,5 +210,29 @@ fn replace_rule_unit_test() {
     assert_eq!(
         replace_codeblock("Codeblock\n```\nMultiline\n```\n!"),
         "Codeblock\n。コード省略。\n!"
+    );
+    assert_eq!(
+        append_image_attachment_notification("", 0),
+        ""
+    );
+    assert_eq!(
+        append_image_attachment_notification("", 1),
+        "画像が送信されました"
+    );
+    assert_eq!(
+        append_image_attachment_notification("", 4),
+        "画像、画像、画像、画像が送信されました"
+    );
+    assert_eq!(
+        append_image_attachment_notification("あ", 0),
+        "あ"
+    );
+    assert_eq!(
+        append_image_attachment_notification("あ", 1),
+        "あ。画像添付"
+    );
+    assert_eq!(
+        append_image_attachment_notification("あ", 4),
+        "あ。画像、画像、画像、画像添付"
     );
 }
