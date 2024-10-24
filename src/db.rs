@@ -18,7 +18,6 @@ pub static PERSISTENT_DB: Lazy<PersistentDB> = Lazy::new(|| {
 struct PersistentStructure {
     voice_settings: HashMap<UserId, SpeakerId>,
     speed_settings: HashMap<UserId, f32>,
-    speed_default_settings: HashMap<GuildId, f32>,
 }
 
 pub struct PersistentDB {
@@ -57,16 +56,14 @@ impl PersistentDB {
         self.flush();
     }
 
-    pub fn get_speed(&self, user: UserId, guild: GuildId) -> f32 {
-        let default_speed = self.get_speed_default(guild);
-        return self
-            .data
+    pub fn get_speed(&self, user: UserId) -> f32 {
+        self.data
             .read()
             .unwrap()
             .speed_settings
             .get(&user)
-            .unwrap_or(&default_speed)
-            .to_owned();
+            .unwrap_or(&1.0)
+            .to_owned()
     }
 
     pub fn store_speed(&self, user: UserId, speed: f32) {
@@ -75,26 +72,6 @@ impl PersistentDB {
             .unwrap()
             .speed_settings
             .insert(user, speed);
-
-        self.flush();
-    }
-
-    pub fn get_speed_default(&self, guild: GuildId) -> f32 {
-        self.data
-            .read()
-            .unwrap()
-            .speed_default_settings
-            .get(&guild)
-            .unwrap_or(&1.0)
-            .to_owned()
-    }
-
-    pub fn store_speed_default(&self, guild: GuildId, speed: f32) {
-        self.data
-            .write()
-            .unwrap()
-            .speed_default_settings
-            .insert(guild, speed);
 
         self.flush();
     }

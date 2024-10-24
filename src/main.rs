@@ -43,7 +43,6 @@ impl EventHandler for Bot {
                 commands::skip::register(&self.prefix),
                 commands::speaker::register(&self.prefix),
                 commands::setspeed::register(&self.prefix),
-                commands::setdefaultspeed::register(&self.prefix),
             ],
         )
         .await
@@ -58,7 +57,7 @@ impl EventHandler for Bot {
         };
 
         let speaker = PERSISTENT_DB.get_speaker_id(msg.author.id);
-        let speed = PERSISTENT_DB.get_speed(msg.author.id, msg.guild_id.unwrap());
+        let speed = PERSISTENT_DB.get_speed(msg.author.id);
 
         let manager = songbird::get(&ctx)
             .await
@@ -99,7 +98,6 @@ impl EventHandler for Bot {
                 s if s == format!("{prefix}leave") => commands::leave::run(&ctx, command).await,
                 s if s == format!("{prefix}skip") => commands::skip::run(&ctx, command).await,
                 s if s == format!("{prefix}setspeed") => commands::setspeed::run(&ctx, command).await,
-                s if s == format!("{prefix}setdefaultspeed") => commands::setdefaultspeed::run(&ctx, command).await,
                 _ => unreachable!("Unknown command: {}", command.data.name),
             },
             Interaction::Component(interaction) => {

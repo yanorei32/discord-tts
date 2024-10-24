@@ -10,7 +10,6 @@ pub mod leave;
 pub mod skip;
 pub mod speaker;
 pub mod setspeed;
-pub mod setdefaultspeed;
 
 async fn simple_resp_helper(
     interaction: &CommandInteraction,
