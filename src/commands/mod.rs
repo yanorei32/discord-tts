@@ -9,6 +9,7 @@ pub mod join;
 pub mod leave;
 pub mod skip;
 pub mod speaker;
+pub mod setspeed;
 
 async fn simple_resp_helper(
     interaction: &CommandInteraction,
