@@ -60,23 +60,21 @@ where
 
 fn append_image_attachment_notification(body: &str, image_count: usize) -> Cow<'_, str> {
     if image_count > 0 {
-        const IMAGE_WITH_COMMAS: &str = "画像、";
-        const SENT_ON_BLANK: &str = "画像が送信されました";
-        // 一応pre-allocate
-        let mut ret = String::with_capacity(body.len() + "。".len() + (IMAGE_WITH_COMMAS.len()) * (image_count - 1) + SENT_ON_BLANK.len());
-        ret.push_str(body);
+        let image_text = if image_count == 1 {
+            "画像".to_string()
+        } else {
+            format!("画像{}枚", image_count)
+        };
+
+        let mut ret = body.to_string();
+
         if !body.is_empty() {
             ret.push('。');
-        }
-
-        for _ in 0..(image_count - 1) {
-            ret.push_str(IMAGE_WITH_COMMAS);
-        }
-
-        if body.is_empty() {
-            ret.push_str(SENT_ON_BLANK);
+            ret.push_str(&image_text);
+            ret.push_str("添付");
         } else {
-            ret.push_str("画像添付");
+            ret.push_str(&image_text);
+            ret.push_str("が送信されました");
         }
 
         ret.into()
@@ -233,7 +231,7 @@ fn replace_rule_unit_test() {
     );
     assert_eq!(
         append_image_attachment_notification("", 4),
-        "画像、画像、画像、画像が送信されました"
+        "画像4枚が送信されました"
     );
     assert_eq!(
         append_image_attachment_notification("あ", 0),
@@ -245,6 +243,6 @@ fn replace_rule_unit_test() {
     );
     assert_eq!(
         append_image_attachment_notification("あ", 4),
-        "あ。画像、画像、画像、画像添付"
+        "あ。画像4枚添付"
     );
 }
