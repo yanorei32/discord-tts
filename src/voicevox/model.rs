@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 pub mod api {
     use base64::{engine::general_purpose::STANDARD as base64_engine, Engine as _};
-    use serde::{de, Deserialize};
+    use serde::{de, Deserialize, Serialize};
 
     #[derive(Debug)]
     pub struct DecodedBinary {
@@ -48,6 +48,40 @@ pub mod api {
                     pub voice_samples: Vec<DecodedBinary>,
                 }
             >,
+        }
+    }
+
+    #[derive(Debug, Deserialize, Serialize)]
+    pub struct Mora {
+        pub text: String,
+        pub consonant: Option<String>,
+        pub consonant_length: Option<f32>,
+        pub vowel: String,
+        pub vowel_length: f32,
+        pub pitch: f32,
+    }
+
+    structstruck::strike! {
+        #[strikethrough[derive(Debug, Deserialize, Serialize)]]
+        #[serde(rename_all = "camelCase")]
+        pub struct AudioQuery {
+            #[serde(rename = "accent_phrases")]
+            pub accent_phrases: Vec<pub struct {
+                #![serde(rename_all = "snake_case")]
+                pub moras: Vec<Mora>,
+                pub accent: u32,
+                pub pause_mora: Option<Mora>,
+                pub is_interrogative: bool,
+            }>,
+            pub speed_scale: f32,
+            pub pitch_scale: f32,
+            pub intonation_scale: f32,
+            pub volume_scale: f32,
+            pub pre_phoneme_length: f32,
+            pub post_phoneme_length: f32,
+            pub output_sampling_rate: u32,
+            pub output_stereo: bool,
+            pub kana: String,
         }
     }
 }

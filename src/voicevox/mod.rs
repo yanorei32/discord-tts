@@ -131,7 +131,7 @@ impl Client {
         &self.inner.speakers
     }
 
-    pub async fn tts(&self, text: &str, speaker_id: model::SpeakerId) -> Result<Bytes, ()> {
+    pub async fn tts(&self, text: &str, speaker_id: model::SpeakerId, speed_scale: f32) -> Result<Bytes, ()> {
         let url = self.inner.host.clone().tap_mut(|u| {
             u.path_segments_mut().unwrap().push("audio_query");
             u.query_pairs_mut()
@@ -148,6 +148,12 @@ impl Client {
             .await
             .map_err(|_| ())?;
 
+        let mut query: model::api::AudioQuery = serde_json::from_str(&query_text).map_err(|e| {
+            eprintln!("Error parsing AudioQuery: {}", e);
+            ()
+        })?;
+        query.speed_scale = speed_scale;
+
         let url = self.inner.host.clone().tap_mut(|u| {
             u.path_segments_mut().unwrap().push("synthesis");
             u.query_pairs_mut()
@@ -160,7 +166,7 @@ impl Client {
             .client
             .post(url)
             .header(CONTENT_TYPE, "application/json")
-            .body(query_text)
+            .body(serde_json::to_string(&query).unwrap())
             .send()
             .await
             .map_err(|_| ())?

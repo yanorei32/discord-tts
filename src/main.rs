@@ -42,6 +42,8 @@ impl EventHandler for Bot {
                 commands::leave::register(&self.prefix),
                 commands::skip::register(&self.prefix),
                 commands::speaker::register(&self.prefix),
+                commands::setspeed::register(&self.prefix),
+                commands::setdefaultspeed::register(&self.prefix),
             ],
         )
         .await
@@ -56,6 +58,7 @@ impl EventHandler for Bot {
         };
 
         let speaker = PERSISTENT_DB.get_speaker_id(msg.author.id);
+        let speed = PERSISTENT_DB.get_speed(msg.author.id, msg.guild_id.unwrap());
 
         let manager = songbird::get(&ctx)
             .await
@@ -63,7 +66,7 @@ impl EventHandler for Bot {
 
         let handler = manager.get(msg.guild_id.unwrap()).unwrap();
 
-        let wav = match self.voicevox.tts(&content, speaker).await {
+        let wav = match self.voicevox.tts(&content, speaker, speed).await {
             Ok(v) => v,
             Err(_) => {
                 msg.reply(&ctx.http, "Error: Failed to synthesise a message").await.unwrap();
@@ -95,6 +98,8 @@ impl EventHandler for Bot {
                 s if s == format!("{prefix}join") => commands::join::run(&ctx, command).await,
                 s if s == format!("{prefix}leave") => commands::leave::run(&ctx, command).await,
                 s if s == format!("{prefix}skip") => commands::skip::run(&ctx, command).await,
+                s if s == format!("{prefix}setspeed") => commands::setspeed::run(&ctx, command).await,
+                s if s == format!("{prefix}setdefaultspeed") => commands::setdefaultspeed::run(&ctx, command).await,
                 _ => unreachable!("Unknown command: {}", command.data.name),
             },
             Interaction::Component(interaction) => {

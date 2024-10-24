@@ -12,4 +12,4 @@ apt-get install -qq -y --no-install-recommends \
 rm -rf /var/lib/apt/lists/*
 
 mkdir /var/discordtts
-echo '{"voice_settings":{}}' > /var/discordtts/state.json
+echo '{"voice_settings":{}, "speed_settings":{}, "speed_default_settings":{}}' > /var/discordtts/state.json
