@@ -12,6 +12,7 @@ use std::io::Cursor;
 
 use reqwest::Url;
 use serenity::{
+    all::{ChunkGuildFilter, Guild},
     async_trait,
     client::{Client, Context, EventHandler},
     model::{
@@ -48,6 +49,10 @@ impl EventHandler for Bot {
         .unwrap();
 
         println!("{} is connected!", ready.user.name);
+    }
+
+    async fn guild_create(&self, ctx: Context, guild: Guild, _is_new: Option<bool>) {
+        ctx.shard.chunk_guild(guild.id, None, false, ChunkGuildFilter::None, None);
     }
 
     async fn message(&self, ctx: Context, msg: Message) {
