@@ -16,9 +16,10 @@ impl VoiceEventHandler for DriverDisconnectNotifier {
             return None;
         };
 
-        if ctx.reason.is_some() {
-            return None;
-        }
+        println!(
+            "Connection to {} is dropped ctx.reason is {:?}",
+            ctx.guild_id, ctx.reason
+        );
 
         INMEMORY_DB.destroy_instance(ctx.guild_id.0.into());
         self.songbird_manager.remove(ctx.guild_id).await.unwrap();
