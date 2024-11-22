@@ -17,6 +17,7 @@ pub static PERSISTENT_DB: Lazy<PersistentDB> = Lazy::new(|| {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct PersistentStructure {
     voice_settings: HashMap<UserId, SpeakerId>,
+    speed_settings: HashMap<UserId, f32>,
 }
 
 pub struct PersistentDB {
@@ -51,6 +52,26 @@ impl PersistentDB {
             .unwrap()
             .voice_settings
             .insert(user, speaker_id);
+
+        self.flush();
+    }
+
+    pub fn get_speed(&self, user: UserId) -> f32 {
+        self.data
+            .read()
+            .unwrap()
+            .speed_settings
+            .get(&user)
+            .unwrap_or(&1.0)
+            .to_owned()
+    }
+
+    pub fn store_speed(&self, user: UserId, speed: f32) {
+        self.data
+            .write()
+            .unwrap()
+            .speed_settings
+            .insert(user, speed);
 
         self.flush();
     }
