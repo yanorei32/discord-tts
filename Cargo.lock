@@ -2092,9 +2092,9 @@ dependencies = [
 
 [[package]]
 name = "songbird"
-version = "0.4.5"
+version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0faa1cb1580cb87e12ece4474e6d84a25f588afd3ab0c6e05feb3805850d60c2"
+checksum = "30c6bde67a7ba20c8d9abefa35dfbb4f7abb570b344af73c201626033fb64703"
 dependencies = [
  "aead",
  "aes-gcm",
