@@ -28,7 +28,7 @@ COPY src/ /usr/src/discord-tts/src/
 COPY assets/ /usr/src/discord-tts/assets/
 RUN touch src/**/* src/* && cargo build --release
 
-FROM debian:bookworm-slim@sha256:b73bf02f32434c9be21adf83b9aedf33e731784d8d2dacbbd3ce5f4993f2a2de
+FROM debian:bookworm-slim@sha256:ceac69add95cb9ac0d99d9569350cc36838b76397d986e1ccc284bd034b58a9f
 
 WORKDIR /init
 COPY init.sh /init/
