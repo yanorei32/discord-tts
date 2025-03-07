@@ -68,12 +68,9 @@ impl EventHandler for Bot {
 
         let handler = manager.get(msg.guild_id.unwrap()).unwrap();
 
-        let wav = match self.voicevox.tts(&content, speaker).await {
-            Ok(v) => v,
-            Err(_) => {
-                msg.reply(&ctx.http, "Error: Failed to synthesise a message").await.unwrap();
-                return;
-            },
+        let Ok(wav) = self.voicevox.tts(&content, speaker).await else {
+            msg.reply(&ctx.http, "Error: Failed to synthesise a message").await.unwrap();
+            return;
         };
 
         handler

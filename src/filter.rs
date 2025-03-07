@@ -50,7 +50,7 @@ where
     let s = replace_emoji(&s);
     let s = replace_unicode_emoji(&s);
     // Attachment::dimensions: If this attachment is an image, then a tuple of the width and height in pixels is returned.
-    let s = append_image_attachment_notification(&s, mes.attachments.iter().filter_map(|a| a.dimensions()).count());
+    let s = append_image_attachment_notification(&s, mes.attachments.iter().filter_map(serenity::all::Attachment::dimensions).count());
 
     let s = replace_codeblock(&s);
     let s = suppress_whitespaces(&s)?;
@@ -63,18 +63,18 @@ fn append_image_attachment_notification(body: &str, image_count: usize) -> Cow<'
         let image_text = if image_count == 1 {
             "画像".to_string()
         } else {
-            format!("画像{}枚", image_count)
+            format!("画像{image_count}枚")
         };
 
         let mut ret = body.to_string();
 
-        if !body.is_empty() {
+        if body.is_empty() {
+            ret.push_str(&image_text);
+            ret.push_str("が送信されました");
+        } else {
             ret.push('。');
             ret.push_str(&image_text);
             ret.push_str("添付");
-        } else {
-            ret.push_str(&image_text);
-            ret.push_str("が送信されました");
         }
 
         ret.into()
@@ -89,7 +89,7 @@ where
 {
     let mut s = mes.content.to_string();
 
-    let guild = mes.guild(&ctx.cache().unwrap()).unwrap();
+    let guild = mes.guild(ctx.cache().unwrap()).unwrap();
 
     for m in &mes.mentions {
         let name = guild
@@ -104,7 +104,7 @@ where
     }
 
     for m in &mes.mention_roles {
-        let name = guild.roles.get(&m).unwrap().name.as_str();
+        let name = guild.roles.get(m).unwrap().name.as_str();
 
         s = s.replace(&m.mention().to_string(), &format!("。宛、{name}。"));
     }
@@ -116,7 +116,7 @@ where
         .collect();
 
     for m in &channel_mentions {
-        let name = guild.channels.get(&m).unwrap().name();
+        let name = guild.channels.get(m).unwrap().name();
         s = s.replace(&m.mention().to_string(), &format!("。宛、{name}。"));
     }
 

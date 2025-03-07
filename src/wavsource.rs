@@ -16,7 +16,7 @@ fn completion_24k_to_48k(cum: &mut i16, v: i16) -> Option<[i16; 2]> {
     Some([comp as i16, v])
 }
 
-impl<'a> WavSource<'a> {
+impl WavSource<'_> {
     pub fn new<R: Seek + Read>(reader: &mut R) -> Self {
         let data: Vec<i16> = WavReader::new(reader)
             .unwrap()
@@ -35,7 +35,7 @@ impl<'a> WavSource<'a> {
     }
 }
 
-impl<'a> Read for WavSource<'a> {
+impl Read for WavSource<'_> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
         let mut len = 0;
 
@@ -48,13 +48,13 @@ impl<'a> Read for WavSource<'a> {
     }
 }
 
-impl<'a> Seek for WavSource<'a> {
+impl Seek for WavSource<'_> {
     fn seek(&mut self, _pos: SeekFrom) -> Result<u64> {
         unimplemented!();
     }
 }
 
-impl<'a> MediaSource for WavSource<'a> {
+impl MediaSource for WavSource<'_> {
     fn is_seekable(&self) -> bool {
         false
     }

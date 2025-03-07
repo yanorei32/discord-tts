@@ -108,9 +108,7 @@ impl InmemoryDB {
     }
 }
 
-pub static EMOJI_DB: Lazy<EmojiDB> = Lazy::new(|| {
-    EmojiDB::new().expect("Failed to initialize emoji DB")
-});
+pub static EMOJI_DB: Lazy<EmojiDB> = Lazy::new(EmojiDB::new);
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct EmojiStructure {
@@ -122,7 +120,7 @@ pub struct EmojiDB {
 }
 
 impl EmojiDB {
-    fn new() -> Result<Self, std::io::Error> {
+    fn new() -> Self {
         let json: HashMap<String, EmojiStructure> =
             serde_json::from_str(include_str!("../assets/emoji_ja.json"))
                 .expect("Emoji DB is corrupted");
@@ -133,9 +131,7 @@ impl EmojiDB {
                 .collect(),
         );
 
-        Ok(Self {
-            data,
-        })
+        Self { data }
     }
 
     pub fn get_dictionary(&self) -> Arc<HashMap<String, String>> {
