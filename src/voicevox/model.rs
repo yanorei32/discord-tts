@@ -30,6 +30,7 @@ pub mod api {
                 #[derive(Deserialize, Debug)]
                 pub struct Style {
                     pub name: String,
+                    #[allow(dead_code)]
                     pub id: u32,
                 },
             >,
@@ -78,7 +79,9 @@ pub struct SpeakerStyleView<'a> {
     pub speaker_policy: &'a str,
     pub style_i: usize,
     pub style_name: &'a str,
+    #[allow(dead_code)]
     pub style_id: SpeakerId,
     pub style_icon: Cow<'a, [u8]>,
+    #[allow(dead_code)]
     pub style_voice_samples: &'a Vec<Cow<'a, [u8]>>,
 }
