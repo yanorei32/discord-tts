@@ -59,9 +59,11 @@ async fn run_(
         .map(|v| guild.channels.get(&v.channel_id.unwrap()).unwrap().clone())
         .ok_or(JoinError::YouAreNotInVoiceChannel)?;
 
-    if !vc
-        .permissions_for_user(&ctx.cache, ctx.cache.current_user().id)
-        .unwrap()
+    let current_user = ctx.cache.current_user().id;
+    let current_user = ctx.http.get_member(guild.id, current_user).await.unwrap();
+
+    if !guild
+        .user_permissions_in(&vc, &current_user)
         .contains(Permissions::VIEW_CHANNEL | Permissions::CONNECT | Permissions::SPEAK)
     {
         return Err(JoinError::CannotAccessToVoiceChannel(vc.id));
