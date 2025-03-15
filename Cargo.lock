@@ -486,7 +486,7 @@ dependencies = [
  "hound",
  "once_cell",
  "regex",
- "reqwest 0.12.13",
+ "reqwest 0.12.14",
  "serde",
  "serde_json",
  "serenity",
@@ -1715,9 +1715,9 @@ dependencies = [
 
 [[package]]
 name = "reqwest"
-version = "0.12.13"
+version = "0.12.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "389a89e494bbc88bebf30e23da98742c843863a16a352647716116aa71fae80a"
+checksum = "989e327e510263980e231de548a33e63d34962d29ae61b467389a1a09627a254"
 dependencies = [
  "base64 0.22.1",
  "bytes",
@@ -2160,7 +2160,7 @@ dependencies = [
  "parking_lot",
  "pin-project",
  "rand 0.9.0",
- "reqwest 0.12.13",
+ "reqwest 0.12.14",
  "ringbuf",
  "rubato",
  "rusty_pool",
@@ -2215,7 +2215,7 @@ dependencies = [
  "futures-util",
  "hls_m3u8",
  "patricia_tree",
- "reqwest 0.12.13",
+ "reqwest 0.12.14",
  "tokio",
  "tracing",
  "url",
