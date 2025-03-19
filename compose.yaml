@@ -1,0 +1,39 @@
+version: '3.9'
+services:
+  discordtts:
+    build: .
+
+    restart: unless-stopped
+
+    environment:
+      VOICEVOX_HOST: http://voicevox:50021
+      PERSISTENT_PATH: /var/discordtts/state.json
+      DISCORD_TOKEN: ${DISCORD_TOKEN}
+
+    volumes:
+      - type: volume
+        source: data
+        target: /var/discordtts/
+
+    networks:
+      - discordtts
+
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+
+  voicevox:
+    image: voicevox/voicevox_engine:cpu-0.14.4
+    restart: unless-stopped
+
+    networks:
+      - discordtts
+
+volumes:
+  data:
+    name: discordtts
+
+networks:
+  discordtts:
+    name: discordtts
