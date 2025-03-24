@@ -19,7 +19,7 @@ serenity = { version = "0.12.1", features = ["cache", "client", "voice", "native
 songbird = { version = "0.5.0", features = ["builtin-queue", "gateway", "serenity", "driver", "native", "tungstenite"], default-features = false }
 symphonia = { version = "0.5.4", features = ["pcm"], default-features = false }
 symphonia-core = { version = "0.5.4" }
-structstruck = "0.4.1"
+structstruck = "0.5.0"
 tap = "1.0.1"
 tokio = { version = "1.37.0", features = ["macros", "rt-multi-thread", "signal"] }
 tracing = "0.1.40"
