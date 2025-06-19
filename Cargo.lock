@@ -2245,9 +2245,9 @@ checksum = "6446ced80d6c486436db5c078dde11a9f73d42b57fb273121e160b84f63d894c"
 
 [[package]]
 name = "structstruck"
-version = "0.5.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "81a47c66dfe6124807cc19e95589ec63d063613eae0e9bc519dc19b5a65d5d2a"
+checksum = "f318209842d04696a2c139cd3d5d4d75c4a9e2af435b077aa5cbd391a79c34b3"
 dependencies = [
  "proc-macro2",
  "quote",
