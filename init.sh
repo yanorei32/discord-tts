@@ -2,7 +2,7 @@
 set -eux
 
 # depName=debian_12/ca-certificates
-CA_CERTIFICATES_VERSION="20230311"
+CA_CERTIFICATES_VERSION="20230311+deb12u1"
 
 apt-get update -qq
 
