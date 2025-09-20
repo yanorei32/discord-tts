@@ -127,7 +127,7 @@ impl Client {
         None
     }
 
-    pub fn get_speakers(&self) -> &[model::Speaker] {
+    pub fn get_speakers(&self) -> &[model::Speaker<'_>] {
         &self.inner.speakers
     }
 
