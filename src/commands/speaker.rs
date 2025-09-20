@@ -12,6 +12,8 @@ use serenity::{
 use crate::voicevox::Client as VoicevoxClient;
 use crate::{db::PERSISTENT_DB, voicevox::model::SpeakerId};
 
+const PAGE_SIZE: usize = 25;
+
 pub fn register(prefix: &str) -> CreateCommand {
     CreateCommand::new(format!("{prefix}speaker"))
         .description("Manage your speaker")
@@ -34,6 +36,20 @@ pub async fn update(ctx: &Context, interaction: ComponentInteraction, voicevox: 
     let speakers = voicevox.get_speakers();
 
     let (speaker_id, editable) = match &interaction.data {
+        ComponentInteractionData {
+            custom_id, kind, ..
+        } if custom_id == "speaker_page_selector" => {
+            let ComponentInteractionDataKind::StringSelect { values } = kind else {
+                unreachable!("Illegal speaker_page_selector call");
+            };
+
+            let page_index: usize = values.first().unwrap().parse().unwrap();
+
+            (
+                speakers[page_index * PAGE_SIZE].styles.first().unwrap().id,
+                true,
+            )
+        }
         ComponentInteractionData {
             custom_id, kind, ..
         } if custom_id == "speaker_selector" => {
@@ -79,7 +95,12 @@ pub fn create_modal(
     editable: bool,
 ) -> CreateInteractionResponseMessage {
     let speakers = voicevox.get_speakers();
+
     let style = voicevox.query_style_by_id(speaker_id).unwrap();
+
+    let paged_speakers: Vec<_> = voicevox.get_speakers().chunks(PAGE_SIZE).collect();
+    let page_count = (speakers.len() + PAGE_SIZE - 1) / PAGE_SIZE;
+    let current_page_index = style.speaker_i / PAGE_SIZE;
 
     let core = CreateInteractionResponseMessage::new()
         .embed(
@@ -99,15 +120,35 @@ pub fn create_modal(
     }
 
     core.components(vec![
+        CreateActionRow::SelectMenu(
+            CreateSelectMenu::new(
+                "speaker_page_selector",
+                CreateSelectMenuKind::String {
+                    options: (0..page_count)
+                        .map(|i| {
+                            CreateSelectMenuOption::new(
+                                &format!("Page {}/{}", i + 1, page_count),
+                                i.to_string(),
+                            )
+                            .default_selection(current_page_index == i)
+                        })
+                        .collect(),
+                },
+            )
+            .disabled(page_count == 1),
+        ),
         CreateActionRow::SelectMenu(CreateSelectMenu::new(
             "speaker_selector",
             CreateSelectMenuKind::String {
-                options: speakers
+                options: paged_speakers[current_page_index]
                     .iter()
                     .enumerate()
                     .map(|(i, v)| {
-                        CreateSelectMenuOption::new(&v.name, i.to_string())
-                            .default_selection(style.speaker_i == i)
+                        CreateSelectMenuOption::new(
+                            &v.name,
+                            (current_page_index * PAGE_SIZE + i).to_string(),
+                        )
+                        .default_selection(style.speaker_i == (current_page_index * PAGE_SIZE + i))
                     })
                     .collect(),
             },
