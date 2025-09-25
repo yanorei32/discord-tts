@@ -36,15 +36,15 @@ where
     let s = legacy_ping_command_compatibility(s)?;
     let s = suppress_by_semicolon(s)?;
 
-    // `<a:emoji_identifier:123456789>` should be treated as a single emoji and not `<a:emoji_。URI省略。>`,
+    // `<a:emoji_identifier:123456789>` should be treated as a single emoji and not `<a:emoji_。ユーアールアイ省略。>`,
     // so replace_external_emoji must precede replace_uri.
-    // On the other hand, `protocol:host:23` should be treated as a `。URI省略。` and not `protocol23` (:host: replaced by `replace_emoji`),
+    // On the other hand, `protocol:host:23` should be treated as a `。ユーアールアイ省略。` and not `protocol23` (:host: replaced by `replace_emoji`),
     // so replace_uri must precede replace_emoji.
     //
     // The order `replace_external_emoji` -> `replace_uri` -> `replace_emoji` rests upon the observation that
     // an external_emoji cannot be a part of an URI (since an URI cannot contain a letter "<", as per RFC3986),
     // and the design decision that we want to treat a string like `<a:crime:1238318711>` as a single `external_emoji` and not
-    // `<。URI省略。>` or `<a:。URI省略。>`. I mean, why would anyone enclose a strange URI within a pair of angle brackets?
+    // `<。ユーアールアイ省略。>` or `<a:。ユーアールアイ省略。>`. I mean, why would anyone enclose a strange URI within a pair of angle brackets?
     let s = replace_external_emoji(s);
     let s = replace_uri(&s);
     let s = replace_emoji(&s);
@@ -187,23 +187,23 @@ fn replace_rule_unit_test() {
     assert_eq!(suppress_by_semicolon(";;hello"), Some(";;hello"));
 
     assert_eq!(replace_uri("hello"), "hello");
-    assert_eq!(replace_uri("ms-settings:privacy-microphone"), "。URI省略。");
+    assert_eq!(replace_uri("ms-settings:privacy-microphone"), "。ユーアールアイ省略。");
     assert_eq!(
         replace_uri("some.strange-protocol+ver2:pathpathpath"),
-        "。URI省略。"
+        "。ユーアールアイ省略。"
     );
     assert_eq!(
         replace_uri("20:40に秋葉原にて待つ"),
         "20:40に秋葉原にて待つ"
     );
-    assert_eq!(replace_uri("abc,def://nyan.com:22/mofu"), "abc,。URI省略。");
+    assert_eq!(replace_uri("abc,def://nyan.com:22/mofu"), "abc,。ユーアールアイ省略。");
     assert_eq!(
         replace_uri("そこから ms-settings:privacy-microphone を開いて"),
-        "そこから 。URI省略。 を開いて"
+        "そこから 。ユーアールアイ省略。 を開いて"
     );
     assert_eq!(
         replace_uri("そこから http://metaba.su を開いて"),
-        "そこから 。URI省略。 を開いて"
+        "そこから 。ユーアールアイ省略。 を開いて"
     );
 
     assert_eq!(replace_emoji("hello!"), "hello!");
