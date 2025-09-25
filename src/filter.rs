@@ -145,7 +145,7 @@ fn suppress_whitespaces(mes: &str) -> Option<&str> {
 
 #[inline]
 fn replace_uri(mes: &str) -> Cow<'_, str> {
-    URI_REGEX.replace_all(mes, "。URI省略。")
+    URI_REGEX.replace_all(mes, "。ユーアールアイ省略。")
 }
 
 #[inline]
