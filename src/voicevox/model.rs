@@ -1,6 +1,9 @@
 use std::borrow::Cow;
 
+pub type StyleId = i64;
+
 pub mod api {
+    use super::StyleId;
     use base64::{engine::general_purpose::STANDARD as base64_engine, Engine as _};
     use serde::{de, Deserialize};
 
@@ -44,7 +47,7 @@ pub mod api {
             pub style_infos: Vec<
                 #[derive(Deserialize, Debug)]
                 pub struct StyleInfo {
-                    pub id: u32,
+                    pub id: StyleId,
                     pub icon: DecodedBinary,
                     pub voice_samples: Vec<DecodedBinary>,
                 }
@@ -52,8 +55,6 @@ pub mod api {
         }
     }
 }
-
-pub type SpeakerId = u32;
 
 structstruck::strike! {
     #[derive(Debug)]
@@ -64,7 +65,7 @@ structstruck::strike! {
             #[derive(Debug)]
             pub struct SpeakerStyle<'a> {
                 pub name: String,
-                pub id: SpeakerId,
+                pub id: StyleId,
                 pub icon: Cow<'a, [u8]>,
                 pub voice_samples: Vec<Cow<'a, [u8]>>,
             }
@@ -80,7 +81,7 @@ pub struct SpeakerStyleView<'a> {
     pub style_i: usize,
     pub style_name: &'a str,
     #[allow(dead_code)]
-    pub style_id: SpeakerId,
+    pub style_id: StyleId,
     pub style_icon: Cow<'a, [u8]>,
     #[allow(dead_code)]
     pub style_voice_samples: &'a Vec<Cow<'a, [u8]>>,

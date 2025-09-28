@@ -6,8 +6,8 @@ use futures::future;
 use reqwest::{header::CONTENT_TYPE, Url};
 use tap::prelude::*;
 
-use crate::voicevox::model::{Speaker, SpeakerStyle};
 use self::model::SpeakerStyleView;
+use crate::voicevox::model::{Speaker, SpeakerStyle, StyleId};
 
 pub mod model;
 
@@ -104,10 +104,10 @@ impl Client {
         }
     }
 
-    pub fn query_style_by_id(&self, speaker_id: model::SpeakerId) -> Option<SpeakerStyleView<'_>> {
+    pub fn query_style_by_id(&self, style_id: model::StyleId) -> Option<SpeakerStyleView<'_>> {
         for (speaker_i, speaker) in self.inner.speakers.iter().enumerate() {
             for (style_i, style) in speaker.styles.iter().enumerate() {
-                if style.id != speaker_id {
+                if style.id != style_id {
                     continue;
                 }
 
@@ -131,13 +131,34 @@ impl Client {
         &self.inner.speakers
     }
 
-    pub async fn tts(&self, text: &str, speaker_id: model::SpeakerId) -> Result<Bytes, ()> {
+    pub fn default_style(&self) -> StyleId {
+        self.inner
+            .speakers
+            .first()
+            .unwrap()
+            .styles
+            .first()
+            .unwrap()
+            .id
+    }
+
+    pub async fn tts(&self, text: &str, style_id: model::StyleId) -> Result<Bytes, ()> {
+        let style_id = self
+            .inner
+            .speakers
+            .iter()
+            .map(|speaker| &speaker.styles)
+            .flatten()
+            .find(|style| style.id == style_id)
+            .map(|_| style_id)
+            .unwrap_or(self.default_style());
+
         let url = self.inner.host.clone().tap_mut(|u| {
             u.path_segments_mut().unwrap().push("audio_query");
             u.query_pairs_mut()
                 .clear()
                 .append_pair("text", text)
-                .append_pair("speaker", &speaker_id.to_string());
+                .append_pair("speaker", &style_id.to_string());
         });
 
         let resp = self.inner.client.post(url).send().await.map_err(|_| ())?;
@@ -152,7 +173,7 @@ impl Client {
             u.path_segments_mut().unwrap().push("synthesis");
             u.query_pairs_mut()
                 .clear()
-                .append_pair("speaker", &speaker_id.to_string());
+                .append_pair("speaker", &style_id.to_string());
         });
 
         let resp = self

@@ -10,7 +10,7 @@ use serenity::{
 };
 
 use crate::voicevox::Client as VoicevoxClient;
-use crate::{db::PERSISTENT_DB, voicevox::model::SpeakerId};
+use crate::{db::PERSISTENT_DB, voicevox::model::StyleId};
 
 const PAGE_SIZE: usize = 25;
 
@@ -21,12 +21,14 @@ pub fn register(prefix: &str) -> CreateCommand {
 }
 
 pub async fn run(ctx: &Context, interaction: CommandInteraction, voicevox: &VoicevoxClient) {
-    let speaker_id = PERSISTENT_DB.get_speaker_id(interaction.user.id);
+    let style_id = PERSISTENT_DB
+        .get_style_id(interaction.user.id)
+        .unwrap_or(voicevox.default_style());
 
     interaction
         .create_response(
             &ctx.http,
-            CreateInteractionResponse::Message(create_modal(voicevox, speaker_id, true)),
+            CreateInteractionResponse::Message(create_modal(voicevox, style_id, true)),
         )
         .await
         .unwrap();
@@ -35,7 +37,7 @@ pub async fn run(ctx: &Context, interaction: CommandInteraction, voicevox: &Voic
 pub async fn update(ctx: &Context, interaction: ComponentInteraction, voicevox: &VoicevoxClient) {
     let speakers = voicevox.get_speakers();
 
-    let (speaker_id, editable) = match &interaction.data {
+    let (style_id, editable) = match &interaction.data {
         ComponentInteractionData {
             custom_id, kind, ..
         } if custom_id == "speaker_page_selector" => {
@@ -71,11 +73,11 @@ pub async fn update(ctx: &Context, interaction: ComponentInteraction, voicevox: 
             (values.first().unwrap().parse().unwrap(), true)
         }
         ComponentInteractionData { custom_id, .. } if custom_id.starts_with("apply_") => {
-            let speaker_id: u32 = custom_id.split('_').nth(1).unwrap().parse().unwrap();
-            println!("Store {}: {}", interaction.user.id, speaker_id);
-            PERSISTENT_DB.store_speaker_id(interaction.user.id, speaker_id);
+            let style_id = custom_id.split('_').nth(1).unwrap().parse().unwrap();
+            println!("Store {}: {}", interaction.user.id, style_id);
+            PERSISTENT_DB.store_style_id(interaction.user.id, style_id);
 
-            (speaker_id, false)
+            (style_id, false)
         }
         _ => unimplemented!(),
     };
@@ -83,7 +85,7 @@ pub async fn update(ctx: &Context, interaction: ComponentInteraction, voicevox: 
     interaction
         .create_response(
             &ctx.http,
-            CreateInteractionResponse::UpdateMessage(create_modal(voicevox, speaker_id, editable)),
+            CreateInteractionResponse::UpdateMessage(create_modal(voicevox, style_id, editable)),
         )
         .await
         .unwrap();
@@ -91,16 +93,29 @@ pub async fn update(ctx: &Context, interaction: ComponentInteraction, voicevox: 
 
 pub fn create_modal(
     voicevox: &VoicevoxClient,
-    speaker_id: SpeakerId,
+    style_id: StyleId,
     editable: bool,
 ) -> CreateInteractionResponseMessage {
     let speakers = voicevox.get_speakers();
 
-    let style = voicevox.query_style_by_id(speaker_id).unwrap();
+    let style = voicevox.query_style_by_id(style_id).unwrap_or(
+        voicevox
+            .query_style_by_id(voicevox.default_style())
+            .unwrap(),
+    );
 
     let paged_speakers: Vec<_> = voicevox.get_speakers().chunks(PAGE_SIZE).collect();
     let page_count = (speakers.len() + PAGE_SIZE - 1) / PAGE_SIZE;
     let current_page_index = style.speaker_i / PAGE_SIZE;
+
+    let policy = match style.speaker_policy {
+        policy if policy.starts_with("# Aivis Common Model License (ACML) 1.0\n") =>
+            "この音声は [Aivis Common Model License (ACML) 1.0](https://github.com/Aivis-Project/ACML/blob/master/ACML-1.0.md) により提供されています。".to_string(),
+        policy if policy.starts_with("# Aivis Common Model License (ACML) - Non Commercial 1.0\n") =>
+            "この音声は [Aivis Common Model License (ACML) - Non Commercial 1.0](https://github.com/Aivis-Project/ACML/blob/master/ACML-NC-1.0.md) により提供されています。".to_string(),
+        policy =>
+            policy.chars().take(512).collect::<String>(),
+    };
 
     let core = CreateInteractionResponseMessage::new()
         .embed(
@@ -109,7 +124,7 @@ pub fn create_modal(
                     "{} / {}",
                     style.speaker_name, style.style_name
                 )))
-                .field("Policy", style.speaker_policy, false)
+                .field("Policy", policy, false)
                 .thumbnail("attachment://icon.png"),
         )
         .add_file(CreateAttachment::bytes(style.style_icon, "icon.png"))
@@ -171,7 +186,7 @@ pub fn create_modal(
             .disabled(speakers[style.speaker_i].styles.len() == 1),
         ),
         CreateActionRow::Buttons(vec![
-            CreateButton::new(format!("apply_{speaker_id}")).label("Apply")
+            CreateButton::new(format!("apply_{style_id}")).label("Apply")
         ]),
     ])
 }

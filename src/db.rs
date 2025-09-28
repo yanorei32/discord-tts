@@ -8,7 +8,7 @@ use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use serenity::model::prelude::{ChannelId, GuildId, UserId};
 
-use crate::voicevox::model::SpeakerId;
+use crate::voicevox::model::StyleId;
 
 pub static PERSISTENT_DB: Lazy<PersistentDB> = Lazy::new(|| {
     PersistentDB::new(&crate::config::CONFIG.persistent_path).expect("Failed to initialize DB")
@@ -16,7 +16,7 @@ pub static PERSISTENT_DB: Lazy<PersistentDB> = Lazy::new(|| {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct PersistentStructure {
-    voice_settings: HashMap<UserId, SpeakerId>,
+    voice_settings: HashMap<UserId, StyleId>,
 }
 
 pub struct PersistentDB {
@@ -35,22 +35,16 @@ impl PersistentDB {
         })
     }
 
-    pub fn get_speaker_id(&self, user: UserId) -> SpeakerId {
-        self.data
-            .read()
-            .unwrap()
-            .voice_settings
-            .get(&user)
-            .unwrap_or(&0)
-            .to_owned()
+    pub fn get_style_id(&self, user: UserId) -> Option<StyleId> {
+        self.data.read().unwrap().voice_settings.get(&user).copied()
     }
 
-    pub fn store_speaker_id(&self, user: UserId, speaker_id: SpeakerId) {
+    pub fn store_style_id(&self, user: UserId, style_id: StyleId) {
         self.data
             .write()
             .unwrap()
             .voice_settings
-            .insert(user, speaker_id);
+            .insert(user, style_id);
 
         self.flush();
     }

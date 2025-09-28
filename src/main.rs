@@ -52,7 +52,8 @@ impl EventHandler for Bot {
     }
 
     async fn guild_create(&self, ctx: Context, guild: Guild, _is_new: Option<bool>) {
-        ctx.shard.chunk_guild(guild.id, None, false, ChunkGuildFilter::None, None);
+        ctx.shard
+            .chunk_guild(guild.id, None, false, ChunkGuildFilter::None, None);
     }
 
     async fn message(&self, ctx: Context, msg: Message) {
@@ -60,7 +61,9 @@ impl EventHandler for Bot {
             return;
         };
 
-        let speaker = PERSISTENT_DB.get_speaker_id(msg.author.id);
+        let speaker = PERSISTENT_DB
+            .get_style_id(msg.author.id)
+            .unwrap_or(self.voicevox.default_style());
 
         let manager = songbird::get(&ctx)
             .await
@@ -69,21 +72,17 @@ impl EventHandler for Bot {
         let handler = manager.get(msg.guild_id.unwrap()).unwrap();
 
         let Ok(wav) = self.voicevox.tts(&content, speaker).await else {
-            msg.reply(&ctx.http, "Error: Failed to synthesise a message").await.unwrap();
+            msg.reply(&ctx.http, "Error: Failed to synthesise a message")
+                .await
+                .unwrap();
             return;
         };
 
+        let (source, sample_rate) = wavsource::WavSource::new(&mut Cursor::new(wav));
         handler
             .lock()
             .await
-            .enqueue_input(
-                songbird::input::RawAdapter::new(
-                    wavsource::WavSource::new(&mut Cursor::new(wav)),
-                    48000,
-                    1,
-                )
-                .into(),
-            )
+            .enqueue_input(songbird::input::RawAdapter::new(source, sample_rate, 1).into())
             .await;
     }
 

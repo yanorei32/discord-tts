@@ -8,7 +8,7 @@ pub struct WavSource<'a> {
 }
 
 #[allow(clippy::unnecessary_wraps)]
-fn completion_24k_to_48k(cum: &mut i16, v: i16) -> Option<[i16; 2]> {
+fn completion_2x(cum: &mut i16, v: i16) -> Option<[i16; 2]> {
     let comp = i32::from(*cum) + (i32::from(v) - i32::from(*cum)) / 2;
     *cum = v;
 
@@ -17,20 +17,34 @@ fn completion_24k_to_48k(cum: &mut i16, v: i16) -> Option<[i16; 2]> {
 }
 
 impl WavSource<'_> {
-    pub fn new<R: Seek + Read>(reader: &mut R) -> Self {
-        let data: Vec<i16> = WavReader::new(reader)
-            .unwrap()
-            .samples()
-            .map(|v| v.unwrap())
-            .collect();
+    pub fn new<R: Seek + Read>(reader: &mut R) -> (Self, u32) {
+        let mut wave = WavReader::new(reader).unwrap();
+        let data: Vec<i16> = wave.samples().map(|v| v.unwrap()).collect();
 
-        Self {
-            iterator: Box::new(
-                data.into_iter()
-                    .scan(0, completion_24k_to_48k)
-                    .flatten()
-                    .flat_map(|v| f32::to_le_bytes(f32::from(v) / f32::from(i16::MAX))),
-            ),
+        let sample_rate = wave.spec().sample_rate;
+
+        if sample_rate <= 24000 {
+            (
+                Self {
+                    iterator: Box::new(
+                        data.into_iter()
+                            .scan(0, completion_2x)
+                            .flatten()
+                            .flat_map(|v| f32::to_le_bytes(f32::from(v) / f32::from(i16::MAX))),
+                    ),
+                },
+                sample_rate * 2,
+            )
+        } else {
+            (
+                Self {
+                    iterator: Box::new(
+                        data.into_iter()
+                            .flat_map(|v| f32::to_le_bytes(f32::from(v) / f32::from(i16::MAX))),
+                    ),
+                },
+                sample_rate,
+            )
         }
     }
 }

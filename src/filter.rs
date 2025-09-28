@@ -50,7 +50,13 @@ where
     let s = replace_emoji(&s);
     let s = replace_unicode_emoji(&s);
     // Attachment::dimensions: If this attachment is an image, then a tuple of the width and height in pixels is returned.
-    let s = append_image_attachment_notification(&s, mes.attachments.iter().filter_map(serenity::all::Attachment::dimensions).count());
+    let s = append_image_attachment_notification(
+        &s,
+        mes.attachments
+            .iter()
+            .filter_map(serenity::all::Attachment::dimensions)
+            .count(),
+    );
 
     let s = replace_codeblock(&s);
     let s = suppress_whitespaces(&s)?;
@@ -187,7 +193,10 @@ fn replace_rule_unit_test() {
     assert_eq!(suppress_by_semicolon(";;hello"), Some(";;hello"));
 
     assert_eq!(replace_uri("hello"), "hello");
-    assert_eq!(replace_uri("ms-settings:privacy-microphone"), "。ユーアールアイ省略。");
+    assert_eq!(
+        replace_uri("ms-settings:privacy-microphone"),
+        "。ユーアールアイ省略。"
+    );
     assert_eq!(
         replace_uri("some.strange-protocol+ver2:pathpathpath"),
         "。ユーアールアイ省略。"
@@ -196,7 +205,10 @@ fn replace_rule_unit_test() {
         replace_uri("20:40に秋葉原にて待つ"),
         "20:40に秋葉原にて待つ"
     );
-    assert_eq!(replace_uri("abc,def://nyan.com:22/mofu"), "abc,。ユーアールアイ省略。");
+    assert_eq!(
+        replace_uri("abc,def://nyan.com:22/mofu"),
+        "abc,。ユーアールアイ省略。"
+    );
     assert_eq!(
         replace_uri("そこから ms-settings:privacy-microphone を開いて"),
         "そこから 。ユーアールアイ省略。 を開いて"
@@ -221,10 +233,7 @@ fn replace_rule_unit_test() {
         replace_codeblock("Codeblock\n```\nMultiline\n```\n!"),
         "Codeblock\n。コード省略。\n!"
     );
-    assert_eq!(
-        append_image_attachment_notification("", 0),
-        ""
-    );
+    assert_eq!(append_image_attachment_notification("", 0), "");
     assert_eq!(
         append_image_attachment_notification("", 1),
         "画像が送信されました"
@@ -233,10 +242,7 @@ fn replace_rule_unit_test() {
         append_image_attachment_notification("", 4),
         "画像4枚が送信されました"
     );
-    assert_eq!(
-        append_image_attachment_notification("あ", 0),
-        "あ"
-    );
+    assert_eq!(append_image_attachment_notification("あ", 0), "あ");
     assert_eq!(
         append_image_attachment_notification("あ", 1),
         "あ。画像添付"
