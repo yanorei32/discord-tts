@@ -579,7 +579,7 @@ dependencies = [
 
 [[package]]
 name = "discord-tts"
-version = "0.9.2"
+version = "0.9.3"
 dependencies = [
  "anyhow",
  "async-trait",
