@@ -87,6 +87,16 @@ pub async fn create_modal(
 ) -> CreateInteractionResponseMessage {
     let styles = tts_services.styles().await;
 
+    // Check avialablity
+    let voice_setting = if tts_services
+        .is_available(&voice_setting.service_id, &voice_setting.style_id)
+        .await
+    {
+        voice_setting
+    } else {
+        DEFAULT_TTS_STYLE.get().unwrap()
+    };
+
     let current_service = styles.get(&voice_setting.service_id).unwrap();
 
     let current_speaker = current_service
@@ -223,7 +233,10 @@ pub async fn create_modal(
 
     let character_unselectable = character_options.len() <= 1;
 
-    let apply_target_id = format!("{}_!DISCORDTTS!_{}", voice_setting.service_id, voice_setting.style_id);
+    let apply_target_id = format!(
+        "{}_!DISCORDTTS!_{}",
+        voice_setting.service_id, voice_setting.style_id
+    );
 
     let style_options: Vec<_> = styles
         .into_iter()
@@ -263,9 +276,8 @@ pub async fn create_modal(
             )
             .disabled(style_unselectable),
         ),
-        CreateActionRow::Buttons(vec![CreateButton::new(format!(
-            "apply_{apply_target_id}"
-        ))
-        .label("Apply")]),
+        CreateActionRow::Buttons(vec![
+            CreateButton::new(format!("apply_{apply_target_id}")).label("Apply")
+        ]),
     ])
 }
