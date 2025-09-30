@@ -223,10 +223,12 @@ pub async fn create_modal(
 
     let character_unselectable = character_options.len() <= 1;
 
+    let apply_target_id = format!("{}_!DISCORDTTS!_{}", voice_setting.service_id, voice_setting.style_id);
+
     let style_options: Vec<_> = styles
         .into_iter()
         .map(|(display, transition_to)| {
-            let is_default = &current_character_id == &transition_to;
+            let is_default = &apply_target_id == &transition_to;
             CreateSelectMenuOption::new(display, transition_to).default_selection(is_default)
         })
         .collect();
@@ -262,7 +264,7 @@ pub async fn create_modal(
             .disabled(style_unselectable),
         ),
         CreateActionRow::Buttons(vec![CreateButton::new(format!(
-            "apply_{current_character_id}"
+            "apply_{apply_target_id}"
         ))
         .label("Apply")]),
     ])
