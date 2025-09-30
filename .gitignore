@@ -1,4 +1,4 @@
 /target
 .env
 state.json
-config.toml
+discord-tts.tts.toml
