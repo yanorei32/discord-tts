@@ -101,10 +101,8 @@ where
         let name = guild
             .members
             .get(&m.id)
-            .unwrap()
-            .nick
-            .as_ref()
-            .unwrap_or(m.global_name.as_ref().unwrap_or(&m.name));
+            .and_then(|member| member.nick.clone())
+            .unwrap_or(m.global_name.clone().unwrap_or(m.name.clone()));
 
         s = s.replace(&m.id.mention().to_string(), &format!("。宛、{name}。"));
     }
