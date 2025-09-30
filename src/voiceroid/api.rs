@@ -16,4 +16,5 @@ pub struct TtsRequest {
     pub is_kansai: bool,
     pub voice_id: String,
     pub text: String,
+    pub volume: f64,
 }

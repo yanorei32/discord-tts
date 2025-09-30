@@ -12,10 +12,16 @@ use crate::tts::{CharacterView, StyleView, TtsService};
 
 mod api;
 
+fn default_master_volume() -> f64 {
+    1.0
+}
+
 #[derive(Deserialize, Debug, Clone)]
 pub struct Setting {
     pub url: reqwest::Url,
     pub headers: HashMap<String, String>,
+    #[serde(default = "default_master_volume")]
+    pub master_volume: f64,
 }
 
 #[derive(Debug)]
@@ -23,6 +29,7 @@ struct VoiceroidInner {
     client: reqwest::Client,
     url: reqwest::Url,
     voices: Vec<api::Voice>,
+    master_volume: f64,
 }
 
 #[derive(Clone, Debug)]
@@ -64,6 +71,7 @@ impl Voiceroid {
         Ok(Voiceroid {
             inner: Arc::new(VoiceroidInner {
                 url: setting.url.clone(),
+                master_volume: setting.master_volume,
                 voices,
                 client,
             }),
@@ -98,6 +106,7 @@ impl TtsService for Voiceroid {
         }
 
         let query = api::TtsRequest {
+            volume: self.inner.master_volume,
             is_kansai,
             text: text.to_string(),
             voice_id: voice_id.to_string(),
