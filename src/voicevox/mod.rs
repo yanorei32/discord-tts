@@ -5,6 +5,7 @@ use std::sync::Arc;
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use futures::future;
+use json::JsonValue;
 use reqwest::{
     header::{HeaderMap, HeaderName, CONTENT_TYPE},
     Url,
@@ -17,10 +18,16 @@ use crate::voicevox::model::{Speaker, SpeakerStyle};
 
 pub mod model;
 
+fn default_master_volume() -> f64 {
+    1.0
+}
+
 #[derive(Deserialize, Debug, Clone)]
 pub struct Setting {
     pub url: reqwest::Url,
     pub headers: HashMap<String, String>,
+    #[serde(default = "default_master_volume")]
+    pub master_volume: f64,
 }
 
 #[derive(Debug, Clone)]
@@ -33,6 +40,7 @@ struct VoicevoxInner<'a> {
     host: Url,
     client: reqwest::Client,
     speakers: Vec<model::Speaker<'a>>,
+    master_volume: f64,
 }
 
 #[async_trait]
@@ -67,6 +75,17 @@ impl TtsService for Voicevox {
                 .clear()
                 .append_pair("speaker", &style_id.to_string());
         });
+
+        let query_text = match json::parse(&query_text).context("Faield to parse query")? {
+            JsonValue::Object(mut obj) => {
+                obj.insert(
+                    "volumeScale",
+                    JsonValue::Number(self.inner.master_volume.into()),
+                );
+                json::stringify(obj)
+            }
+            _ => anyhow::bail!("Non-object JSON is coming"),
+        };
 
         let resp = self
             .inner
@@ -230,6 +249,7 @@ impl Voicevox {
 
         Ok(Voicevox {
             inner: Arc::new(VoicevoxInner {
+                master_volume: setting.master_volume,
                 host,
                 client,
                 speakers,
