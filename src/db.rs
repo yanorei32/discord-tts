@@ -8,15 +8,16 @@ use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use serenity::model::prelude::{ChannelId, GuildId, UserId};
 
-use crate::voicevox::model::StyleId;
+use crate::model::TtsStyle;
 
 pub static PERSISTENT_DB: Lazy<PersistentDB> = Lazy::new(|| {
-    PersistentDB::new(&crate::config::CONFIG.persistent_path).expect("Failed to initialize DB")
+    PersistentDB::new(&crate::CLI_OPTIONS.get().unwrap().persistent_path)
+        .expect("Failed to initialize DB")
 });
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct PersistentStructure {
-    voice_settings: HashMap<UserId, StyleId>,
+    voice_settings: HashMap<UserId, TtsStyle>,
 }
 
 pub struct PersistentDB {
@@ -25,7 +26,7 @@ pub struct PersistentDB {
 }
 
 impl PersistentDB {
-    fn new(file: &Path) -> Result<Self, std::io::Error> {
+    pub fn new(file: &Path) -> Result<Self, std::io::Error> {
         let data =
             serde_json::from_reader(BufReader::new(File::open(file)?)).expect("DB is corrupt");
 
@@ -35,16 +36,16 @@ impl PersistentDB {
         })
     }
 
-    pub fn get_style_id(&self, user: UserId) -> Option<StyleId> {
-        self.data.read().unwrap().voice_settings.get(&user).copied()
+    pub fn get_voice_setting(&self, user: UserId) -> Option<TtsStyle> {
+        self.data.read().unwrap().voice_settings.get(&user).cloned()
     }
 
-    pub fn store_style_id(&self, user: UserId, style_id: StyleId) {
+    pub fn store_style_id(&self, user: UserId, voice_setting: &TtsStyle) {
         self.data
             .write()
             .unwrap()
             .voice_settings
-            .insert(user, style_id);
+            .insert(user, voice_setting.clone());
 
         self.flush();
     }

@@ -1,16 +1,20 @@
 #![warn(clippy::pedantic)]
 
 mod commands;
-mod config;
 mod db;
 mod filter;
+mod model;
 mod songbird_handler;
-mod voicevox;
+mod tts;
 mod wavsource;
+mod voicevox;
+mod voiceroid;
 
 use std::io::Cursor;
 
-use reqwest::Url;
+use anyhow::Context as _;
+use clap::Parser;
+use once_cell::sync::OnceCell;
 use serenity::{
     all::{ChunkGuildFilter, Guild},
     async_trait,
@@ -23,13 +27,15 @@ use serenity::{
     },
 };
 use songbird::SerenityInit;
-use tap::Tap;
 
-use crate::config::CONFIG;
 use crate::db::PERSISTENT_DB;
+use crate::model::TtsServiceConfig;
+use crate::tts::TtsServices;
+use crate::voiceroid::Voiceroid;
+use crate::voicevox::Voicevox;
 
 struct Bot {
-    voicevox: voicevox::Client,
+    tts_services: TtsServices,
     prefix: String,
 }
 
@@ -62,8 +68,19 @@ impl EventHandler for Bot {
         };
 
         let speaker = PERSISTENT_DB
-            .get_style_id(msg.author.id)
-            .unwrap_or(self.voicevox.default_style());
+            .get_voice_setting(msg.author.id)
+            .unwrap_or(DEFAULT_TTS_STYLE.get().unwrap().clone());
+
+        // Check avialablity
+        let speaker = if self
+            .tts_services
+            .is_available(&speaker.service_id, &speaker.style_id)
+            .await
+        {
+            speaker
+        } else {
+            DEFAULT_TTS_STYLE.get().unwrap().clone()
+        };
 
         let manager = songbird::get(&ctx)
             .await
@@ -71,11 +88,21 @@ impl EventHandler for Bot {
 
         let handler = manager.get(msg.guild_id.unwrap()).unwrap();
 
-        let Ok(wav) = self.voicevox.tts(&content, speaker).await else {
-            msg.reply(&ctx.http, "Error: Failed to synthesise a message")
+        let wav = match self
+            .tts_services
+            .tts(&speaker.service_id, &speaker.style_id, &content)
+            .await
+        {
+            Err(e) => {
+                msg.reply(
+                    &ctx.http,
+                    &format!("Error: Failed to synthesise a message {e}"),
+                )
                 .await
                 .unwrap();
-            return;
+                return;
+            }
+            Ok(v) => v,
         };
 
         let (source, sample_rate) = wavsource::WavSource::new(&mut Cursor::new(wav));
@@ -91,7 +118,7 @@ impl EventHandler for Bot {
         match interaction {
             Interaction::Command(command) => match command.data.name.as_str() {
                 s if s == format!("{prefix}speaker") => {
-                    commands::speaker::run(&ctx, command, &self.voicevox).await;
+                    commands::speaker::run(&ctx, command, &self.tts_services).await;
                 }
                 s if s == format!("{prefix}join") => commands::join::run(&ctx, command).await,
                 s if s == format!("{prefix}leave") => commands::leave::run(&ctx, command).await,
@@ -99,48 +126,78 @@ impl EventHandler for Bot {
                 _ => unreachable!("Unknown command: {}", command.data.name),
             },
             Interaction::Component(interaction) => {
-                commands::speaker::update(&ctx, interaction, &self.voicevox).await;
+                commands::speaker::update(&ctx, interaction, &self.tts_services).await;
             }
             _ => {}
         }
     }
 }
 
+static DEFAULT_TTS_STYLE: OnceCell<model::TtsStyle> = OnceCell::new();
+static CLI_OPTIONS: OnceCell<model::Cli> = OnceCell::new();
+
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::init();
+
+    CLI_OPTIONS.set(model::Cli::parse()).unwrap();
+
+    let cli = CLI_OPTIONS.get().unwrap();
+
+    let tts_config = model::TtsConfig::new(&cli.tts_config_path).unwrap();
+
+    DEFAULT_TTS_STYLE
+        .set(tts_config.default_style.clone())
+        .unwrap();
+
+    let tts_services = TtsServices::new();
+
+    for (service_id, service) in &tts_config.tts_services {
+        match service {
+            TtsServiceConfig::Voiceroid(config) => {
+                tts_services
+                    .register(
+                        service_id,
+                        Box::new(
+                            Voiceroid::new(&config)
+                                .await
+                                .with_context(|| {
+                                    format!("Failed to initialize VOICEROID backend ({service_id})")
+                                })
+                                .unwrap(),
+                        ),
+                    )
+                    .await
+            }
+            TtsServiceConfig::Voicevox(config) => {
+                tts_services
+                    .register(
+                        service_id,
+                        Box::new(
+                            Voicevox::new(&config)
+                                .await
+                                .with_context(|| {
+                                    format!("Failed to initialize VOICEROID backend ({service_id})")
+                                })
+                                .unwrap(),
+                        ),
+                    )
+                    .await
+            }
+        }
+        .with_context(|| format!("Failed to register service {service_id}"))
+        .unwrap();
+    }
 
     let intents = GatewayIntents::GUILDS
         | GatewayIntents::GUILD_VOICE_STATES
         | GatewayIntents::GUILD_MESSAGES
         | GatewayIntents::MESSAGE_CONTENT;
 
-    let default_header = reqwest::header::HeaderMap::new().tap_mut(|h| {
-        let Some(s) = &CONFIG.additional_headers else {
-            return;
-        };
-
-        for s in s.split(',') {
-            let mut split = s.split(':');
-
-            let key = split.next().unwrap().trim();
-            let value = split.next().unwrap().trim();
-
-            h.insert(key, reqwest::header::HeaderValue::from_str(value).unwrap());
-        }
-    });
-
-    let mut client = Client::builder(&CONFIG.discord_token, intents)
+    let mut client = Client::builder(&cli.discord_token, intents)
         .event_handler(Bot {
-            voicevox: voicevox::Client::new(
-                Url::parse(&CONFIG.voicevox_host).unwrap(),
-                reqwest::Client::builder()
-                    .default_headers(default_header)
-                    .build()
-                    .unwrap(),
-            )
-            .await,
-            prefix: CONFIG.command_prefix.clone().unwrap_or_default(),
+            tts_services: tts_services,
+            prefix: cli.command_prefix.clone().unwrap_or_default(),
         })
         .register_songbird()
         .await

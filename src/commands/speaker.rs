@@ -9,8 +9,7 @@ use serenity::{
     model::application::CommandInteraction,
 };
 
-use crate::voicevox::Client as VoicevoxClient;
-use crate::{db::PERSISTENT_DB, voicevox::model::StyleId};
+use crate::{db::PERSISTENT_DB, model::TtsStyle, tts::TtsServices, DEFAULT_TTS_STYLE};
 
 const PAGE_SIZE: usize = 25;
 
@@ -20,64 +19,52 @@ pub fn register(prefix: &str) -> CreateCommand {
         .dm_permission(false)
 }
 
-pub async fn run(ctx: &Context, interaction: CommandInteraction, voicevox: &VoicevoxClient) {
-    let style_id = PERSISTENT_DB
-        .get_style_id(interaction.user.id)
-        .unwrap_or(voicevox.default_style());
+pub async fn run(ctx: &Context, interaction: CommandInteraction, tts_services: &TtsServices) {
+    let voice_setting = PERSISTENT_DB
+        .get_voice_setting(interaction.user.id)
+        .unwrap_or(DEFAULT_TTS_STYLE.get().unwrap().clone());
 
     interaction
         .create_response(
             &ctx.http,
-            CreateInteractionResponse::Message(create_modal(voicevox, style_id, true)),
+            CreateInteractionResponse::Message(
+                create_modal(tts_services, &voice_setting, true).await,
+            ),
         )
         .await
         .unwrap();
 }
 
-pub async fn update(ctx: &Context, interaction: ComponentInteraction, voicevox: &VoicevoxClient) {
-    let speakers = voicevox.get_speakers();
+fn parse_tts_style(s: &str) -> TtsStyle {
+    let (service_id, style_id) = s
+        .split_once("_!DISCORDTTS!_")
+        .expect("UNKNOWN TTS TYLE FORMAT");
+    TtsStyle {
+        service_id: service_id.to_string(),
+        style_id: style_id.to_string(),
+    }
+}
 
-    let (style_id, editable) = match &interaction.data {
+pub async fn update(ctx: &Context, interaction: ComponentInteraction, tts_services: &TtsServices) {
+    let (style, editable) = match &interaction.data {
         ComponentInteractionData {
             custom_id, kind, ..
-        } if custom_id == "speaker_page_selector" => {
-            let ComponentInteractionDataKind::StringSelect { values } = kind else {
-                unreachable!("Illegal speaker_page_selector call");
-            };
-
-            let page_index: usize = values.first().unwrap().parse().unwrap();
-
-            (
-                speakers[page_index * PAGE_SIZE].styles.first().unwrap().id,
-                true,
-            )
-        }
-        ComponentInteractionData {
-            custom_id, kind, ..
-        } if custom_id == "speaker_selector" => {
-            let ComponentInteractionDataKind::StringSelect { values } = kind else {
-                unreachable!("Illegal speaker_selector call");
-            };
-
-            let speaker_i: usize = values.first().unwrap().parse().unwrap();
-
-            (speakers[speaker_i].styles.first().unwrap().id, true)
-        }
-        ComponentInteractionData {
-            custom_id, kind, ..
-        } if custom_id == "style_selector" => {
+        } if custom_id == "page_selector"
+            || custom_id == "character_selector"
+            || custom_id == "style_selector" =>
+        {
             let ComponentInteractionDataKind::StringSelect { values } = kind else {
                 unreachable!("Illegal style_selector call");
             };
 
-            (values.first().unwrap().parse().unwrap(), true)
+            (parse_tts_style(&values.first().unwrap()), true)
         }
         ComponentInteractionData { custom_id, .. } if custom_id.starts_with("apply_") => {
-            let style_id = custom_id.split('_').nth(1).unwrap().parse().unwrap();
-            println!("Store {}: {}", interaction.user.id, style_id);
-            PERSISTENT_DB.store_style_id(interaction.user.id, style_id);
+            let (_apply, style) = custom_id.split_once('_').unwrap();
+            let style = parse_tts_style(&style);
+            PERSISTENT_DB.store_style_id(interaction.user.id, &style);
 
-            (style_id, false)
+            (style, false)
         }
         _ => unimplemented!(),
     };
@@ -85,108 +72,198 @@ pub async fn update(ctx: &Context, interaction: ComponentInteraction, voicevox: 
     interaction
         .create_response(
             &ctx.http,
-            CreateInteractionResponse::UpdateMessage(create_modal(voicevox, style_id, editable)),
+            CreateInteractionResponse::UpdateMessage(
+                create_modal(tts_services, &style, editable).await,
+            ),
         )
         .await
         .unwrap();
 }
 
-pub fn create_modal(
-    voicevox: &VoicevoxClient,
-    style_id: StyleId,
+pub async fn create_modal(
+    tts_services: &TtsServices,
+    voice_setting: &TtsStyle,
     editable: bool,
 ) -> CreateInteractionResponseMessage {
-    let speakers = voicevox.get_speakers();
+    let styles = tts_services.styles().await;
 
-    let style = voicevox.query_style_by_id(style_id).unwrap_or(
-        voicevox
-            .query_style_by_id(voicevox.default_style())
-            .unwrap(),
-    );
+    let current_service = styles.get(&voice_setting.service_id).unwrap();
 
-    let paged_speakers: Vec<_> = voicevox.get_speakers().chunks(PAGE_SIZE).collect();
-    let page_count = (speakers.len() + PAGE_SIZE - 1) / PAGE_SIZE;
-    let current_page_index = style.speaker_i / PAGE_SIZE;
+    let current_speaker = current_service
+        .iter()
+        .find(|character| {
+            character
+                .styles
+                .iter()
+                .any(|style| style.id == voice_setting.style_id)
+        })
+        .unwrap();
 
-    let policy = match style.speaker_policy {
-        policy if policy.starts_with("# Aivis Common Model License (ACML) 1.0\n") =>
-            "この音声は [Aivis Common Model License (ACML) 1.0](https://github.com/Aivis-Project/ACML/blob/master/ACML-1.0.md) により提供されています。".to_string(),
-        policy if policy.starts_with("# Aivis Common Model License (ACML) - Non Commercial 1.0\n") =>
-            "この音声は [Aivis Common Model License (ACML) - Non Commercial 1.0](https://github.com/Aivis-Project/ACML/blob/master/ACML-NC-1.0.md) により提供されています。".to_string(),
-        policy =>
-            policy.chars().take(512).collect::<String>(),
-    };
+    let current_style = current_speaker
+        .styles
+        .iter()
+        .find(|style| style.id == voice_setting.style_id)
+        .unwrap();
+
+    let mut pages = vec![];
+
+    let mut current_character_items = vec![];
+
+    let mut current_page_id = String::new();
+
+    for (service, characters) in styles.iter() {
+        if characters.len() <= PAGE_SIZE {
+            let first_style_id = &characters.first().unwrap().styles.first().unwrap().id;
+            let transition_target_id = format!("{service}_!DISCORDTTS!_{first_style_id}");
+
+            pages.push((service.to_string(), transition_target_id.clone()));
+
+            if service == &voice_setting.service_id {
+                current_page_id = transition_target_id.clone();
+                current_character_items = characters.to_vec();
+            }
+
+            continue;
+        }
+
+        let page_count = (characters.len() + PAGE_SIZE - 1) / PAGE_SIZE;
+        for (page_index, page_characters) in characters.chunks(PAGE_SIZE).enumerate() {
+            let page_index = page_index + 1;
+
+            let first_style_id = &page_characters.first().unwrap().styles.first().unwrap().id;
+            let transition_target_id = format!("{service}_!DISCORDTTS!_{first_style_id}");
+
+            pages.push((
+                format!("{service} ({page_index}/{page_count})"),
+                transition_target_id.clone(),
+            ));
+
+            if service == &voice_setting.service_id {
+                if page_characters
+                    .iter()
+                    .map(|character| character.styles.iter())
+                    .flatten()
+                    .any(|style| &style.id == &voice_setting.style_id)
+                {
+                    current_page_id = transition_target_id.clone();
+                    current_character_items = page_characters.to_vec();
+                }
+            }
+        }
+    }
+
+    let mut characters = vec![];
+
+    let mut current_style_items = vec![];
+    let mut current_character_id = String::new();
+
+    for character in current_character_items {
+        let first_style_id = &character.styles.first().unwrap().id;
+        let transition_target_id =
+            format!("{}_!DISCORDTTS!_{first_style_id}", voice_setting.service_id);
+
+        characters.push((character.name.to_string(), transition_target_id.to_string()));
+
+        if character
+            .styles
+            .iter()
+            .any(|style| &style.id == &voice_setting.style_id)
+        {
+            current_character_id = transition_target_id;
+            current_style_items = character.styles.to_vec();
+        }
+    }
+
+    let mut styles = vec![];
+
+    for style in current_style_items {
+        let style_id = &style.id;
+        let transition_target_id = format!("{}_!DISCORDTTS!_{style_id}", voice_setting.service_id);
+
+        styles.push((style.name.to_string(), transition_target_id.to_string()));
+    }
 
     let core = CreateInteractionResponseMessage::new()
         .embed(
             CreateEmbed::new()
                 .author(CreateEmbedAuthor::new(format!(
                     "{} / {}",
-                    style.speaker_name, style.style_name
+                    current_speaker.name, current_style.name
                 )))
-                .field("Policy", policy, false)
+                .field("Policy", &current_speaker.policy, false)
                 .thumbnail("attachment://icon.png"),
         )
-        .add_file(CreateAttachment::bytes(style.style_icon, "icon.png"))
+        .add_file(CreateAttachment::bytes(
+            current_style.icon.clone(),
+            "icon.png",
+        ))
         .ephemeral(true);
 
     if !editable {
         return core.components(vec![]);
     }
 
+    let page_options: Vec<_> = pages
+        .into_iter()
+        .map(|(display, transition_to)| {
+            let is_default = &current_page_id == &transition_to;
+            CreateSelectMenuOption::new(display, transition_to).default_selection(is_default)
+        })
+        .collect();
+
+    let page_unselectable = page_options.len() <= 1;
+
+    let character_options: Vec<_> = characters
+        .into_iter()
+        .map(|(display, transition_to)| {
+            let is_default = &current_character_id == &transition_to;
+            CreateSelectMenuOption::new(display, transition_to).default_selection(is_default)
+        })
+        .collect();
+
+    let character_unselectable = character_options.len() <= 1;
+
+    let style_options: Vec<_> = styles
+        .into_iter()
+        .map(|(display, transition_to)| {
+            let is_default = &current_character_id == &transition_to;
+            CreateSelectMenuOption::new(display, transition_to).default_selection(is_default)
+        })
+        .collect();
+
+    let style_unselectable = style_options.len() <= 1;
+
     core.components(vec![
         CreateActionRow::SelectMenu(
             CreateSelectMenu::new(
-                "speaker_page_selector",
+                "page_selector",
                 CreateSelectMenuKind::String {
-                    options: (0..page_count)
-                        .map(|i| {
-                            CreateSelectMenuOption::new(
-                                &format!("Page {}/{}", i + 1, page_count),
-                                i.to_string(),
-                            )
-                            .default_selection(current_page_index == i)
-                        })
-                        .collect(),
+                    options: page_options,
                 },
             )
-            .disabled(page_count == 1),
+            .disabled(page_unselectable),
         ),
-        CreateActionRow::SelectMenu(CreateSelectMenu::new(
-            "speaker_selector",
-            CreateSelectMenuKind::String {
-                options: paged_speakers[current_page_index]
-                    .iter()
-                    .enumerate()
-                    .map(|(i, v)| {
-                        CreateSelectMenuOption::new(
-                            &v.name,
-                            (current_page_index * PAGE_SIZE + i).to_string(),
-                        )
-                        .default_selection(style.speaker_i == (current_page_index * PAGE_SIZE + i))
-                    })
-                    .collect(),
-            },
-        )),
+        CreateActionRow::SelectMenu(
+            CreateSelectMenu::new(
+                "character_selector",
+                CreateSelectMenuKind::String {
+                    options: character_options,
+                },
+            )
+            .disabled(character_unselectable),
+        ),
         CreateActionRow::SelectMenu(
             CreateSelectMenu::new(
                 "style_selector",
                 CreateSelectMenuKind::String {
-                    options: speakers[style.speaker_i]
-                        .styles
-                        .iter()
-                        .enumerate()
-                        .map(|(i, v)| {
-                            CreateSelectMenuOption::new(&v.name, v.id.to_string())
-                                .default_selection(style.style_i == i)
-                        })
-                        .collect(),
+                    options: style_options,
                 },
             )
-            .disabled(speakers[style.speaker_i].styles.len() == 1),
+            .disabled(style_unselectable),
         ),
-        CreateActionRow::Buttons(vec![
-            CreateButton::new(format!("apply_{style_id}")).label("Apply")
-        ]),
+        CreateActionRow::Buttons(vec![CreateButton::new(format!(
+            "apply_{current_character_id}"
+        ))
+        .label("Apply")]),
     ])
 }

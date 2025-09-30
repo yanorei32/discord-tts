@@ -1,47 +1,175 @@
 use std::borrow::Cow;
+use std::collections::HashMap;
 use std::sync::Arc;
 
-use bytes::Bytes;
+use anyhow::{Context, Result};
+use async_trait::async_trait;
 use futures::future;
-use reqwest::{header::CONTENT_TYPE, Url};
-use tap::prelude::*;
+use reqwest::{
+    header::{HeaderMap, HeaderName, CONTENT_TYPE},
+    Url,
+};
+use serde::Deserialize;
+use tap::Tap;
 
-use self::model::SpeakerStyleView;
-use crate::voicevox::model::{Speaker, SpeakerStyle, StyleId};
+use crate::tts::{CharacterView, StyleView, TtsService};
+use crate::voicevox::model::{Speaker, SpeakerStyle};
 
 pub mod model;
 
+#[derive(Deserialize, Debug, Clone)]
+pub struct Setting {
+    pub url: reqwest::Url,
+    pub headers: HashMap<String, String>,
+}
+
 #[derive(Debug, Clone)]
-pub struct Client {
-    inner: Arc<InnerClient<'static>>,
+pub struct Voicevox {
+    inner: Arc<VoicevoxInner<'static>>,
 }
 
 #[derive(Debug)]
-struct InnerClient<'a> {
+struct VoicevoxInner<'a> {
     host: Url,
     client: reqwest::Client,
     speakers: Vec<model::Speaker<'a>>,
 }
 
-impl Client {
-    pub async fn new(host: Url, client: reqwest::Client) -> Client {
-        let url = host.clone().tap_mut(|u| {
+#[async_trait]
+impl TtsService for Voicevox {
+    async fn tts(&self, style_id: &str, text: &str) -> Result<Vec<u8>> {
+        let url = self.inner.host.clone().tap_mut(|u| {
+            u.path_segments_mut().unwrap().push("audio_query");
+            u.query_pairs_mut()
+                .clear()
+                .append_pair("text", text)
+                .append_pair("speaker", &style_id.to_string());
+        });
+
+        let resp = self
+            .inner
+            .client
+            .post(url)
+            .send()
+            .await
+            .context("Failed to post /audio_query (send)")?;
+
+        let query_text = resp
+            .error_for_status()
+            .context("Failed to post /audio_query (status)")?
+            .text()
+            .await
+            .context("Failed to post /audio_query (text)")?;
+
+        let url = self.inner.host.clone().tap_mut(|u| {
+            u.path_segments_mut().unwrap().push("synthesis");
+            u.query_pairs_mut()
+                .clear()
+                .append_pair("speaker", &style_id.to_string());
+        });
+
+        let resp = self
+            .inner
+            .client
+            .post(url)
+            .header(CONTENT_TYPE, "application/json")
+            .body(query_text)
+            .send()
+            .await
+            .context("Failed to post /synthesis (send)")?
+            .error_for_status()
+            .context("Failed to post /synthesis (status)")?;
+
+        let bin = resp
+            .bytes()
+            .await
+            .context("Failed to post /synthesis (body)")?;
+
+        Ok(bin.to_vec())
+    }
+
+    fn is_available(&self, style_id: &str) -> bool {
+        let style_id: i64 = style_id.parse().unwrap();
+
+        self.inner
+            .speakers
+            .iter()
+            .map(|speaker| speaker.styles.iter())
+            .flatten()
+            .any(|style| style.id == style_id)
+    }
+
+    fn styles(&self) -> Vec<CharacterView> {
+        self.inner
+            .speakers
+            .iter()
+            .map(|speaker| {
+                let name = speaker.name.to_string();
+
+                let policy = match &speaker.policy {
+                    policy if policy.starts_with("# Aivis Common Model License (ACML) 1.0\n") =>
+                        "この音声は [Aivis Common Model License (ACML) 1.0](https://github.com/Aivis-Project/ACML/blob/master/ACML-1.0.md) により提供されています。".to_string(),
+                    policy if policy.starts_with("# Aivis Common Model License (ACML) - Non Commercial 1.0\n") =>
+                        "この音声は [Aivis Common Model License (ACML) - Non Commercial 1.0](https://github.com/Aivis-Project/ACML/blob/master/ACML-NC-1.0.md) により提供されています。".to_string(),
+                    policy => policy.chars().take(512).collect::<String>(),
+                };
+
+                let styles: Vec<_> = speaker
+                    .styles
+                    .iter()
+                    .map(|style| StyleView {
+                        name: style.name.to_string(),
+                        id: format!("{}", style.id),
+                        icon: style.icon.to_vec(),
+                    })
+                    .collect();
+
+                CharacterView {
+                    name,
+                    policy,
+                    styles,
+                }
+            })
+            .collect()
+    }
+}
+
+impl Voicevox {
+    pub async fn new(setting: &Setting) -> Result<Voicevox> {
+        let speakers_uri = setting.url.clone().tap_mut(|u| {
             u.path_segments_mut().unwrap().push("speakers");
         });
 
+        let mut headers = HeaderMap::new();
+
+        for (key, value) in &setting.headers {
+            headers.insert(
+                HeaderName::from_bytes(key.as_bytes()).context("Invalid HeaderName")?,
+                value.parse().context("Invalid HeaderValue")?,
+            );
+        }
+
+        let client = reqwest::ClientBuilder::new()
+            .default_headers(headers)
+            .user_agent("discord-tts-voicevox/0.0.0")
+            .build()
+            .unwrap();
+
         let speakers: Vec<model::api::Speaker> = client
-            .get(url)
+            .get(speakers_uri)
             .send()
             .await
-            .expect("Failed to get speakers")
+            .context("Failed to get /speakers (send)")?
+            .error_for_status()
+            .context("Failed to get /speakers (status)")?
             .json()
             .await
-            .expect("JSON was not well-formatted");
+            .context("Failed to get /speakers (body)")?;
 
         let speaker_infos: Vec<_> = speakers
             .iter()
             .map(|s| {
-                let url = host.clone().tap_mut(|u| {
+                let url = setting.url.clone().tap_mut(|u| {
                     u.path_segments_mut().unwrap().push("speaker_info");
                     u.query_pairs_mut()
                         .clear()
@@ -51,23 +179,25 @@ impl Client {
                 let client = client.clone();
 
                 async move {
-                    client
+                    Ok(client
                         .get(url)
                         .send()
                         .await
-                        .unwrap_or_else(|_| {
-                            panic!("Failed to get speaker information of {}", &s.speaker_uuid)
-                        })
+                        .context("Failed to get /speaker_info (send)")?
+                        .error_for_status()
+                        .context("Failed to get /speaker_info (status)")?
                         .json::<model::api::SpeakerInfo>()
                         .await
-                        .expect("JSON was not well-formatted")
+                        .context("Failed to get /speaker_info (body)")?)
                 }
             })
             .collect();
 
-        let speaker_infos = future::join_all(speaker_infos).await;
+        let speaker_infos: Vec<_> = future::join_all(speaker_infos).await;
+        let speaker_infos: Result<Vec<_>> = speaker_infos.into_iter().collect();
+        let speaker_infos = speaker_infos?;
 
-        let speakers: Vec<model::Speaker> = speakers
+        let speakers: Result<Vec<model::Speaker>> = speakers
             .into_iter()
             .zip(speaker_infos.into_iter())
             .map(|(speaker, speaker_info)| {
@@ -87,107 +217,23 @@ impl Client {
                     })
                     .collect();
 
-                Speaker {
+                Ok(Speaker {
                     name: speaker.name,
                     policy: speaker_info.policy,
                     styles: speaker_styles,
-                }
+                })
             })
             .collect();
 
-        Client {
-            inner: Arc::new(InnerClient {
+        let speakers = speakers?;
+        let host = setting.url.clone();
+
+        Ok(Voicevox {
+            inner: Arc::new(VoicevoxInner {
                 host,
                 client,
                 speakers,
             }),
-        }
-    }
-
-    pub fn query_style_by_id(&self, style_id: model::StyleId) -> Option<SpeakerStyleView<'_>> {
-        for (speaker_i, speaker) in self.inner.speakers.iter().enumerate() {
-            for (style_i, style) in speaker.styles.iter().enumerate() {
-                if style.id != style_id {
-                    continue;
-                }
-
-                return Some(SpeakerStyleView {
-                    speaker_i,
-                    speaker_name: &speaker.name,
-                    speaker_policy: &speaker.policy,
-                    style_i,
-                    style_id: style.id,
-                    style_icon: style.icon.clone(),
-                    style_name: &style.name,
-                    style_voice_samples: &style.voice_samples,
-                });
-            }
-        }
-
-        None
-    }
-
-    pub fn get_speakers(&self) -> &[model::Speaker<'_>] {
-        &self.inner.speakers
-    }
-
-    pub fn default_style(&self) -> StyleId {
-        self.inner
-            .speakers
-            .first()
-            .unwrap()
-            .styles
-            .first()
-            .unwrap()
-            .id
-    }
-
-    pub async fn tts(&self, text: &str, style_id: model::StyleId) -> Result<Bytes, ()> {
-        let style_id = self
-            .inner
-            .speakers
-            .iter()
-            .map(|speaker| &speaker.styles)
-            .flatten()
-            .find(|style| style.id == style_id)
-            .map(|_| style_id)
-            .unwrap_or(self.default_style());
-
-        let url = self.inner.host.clone().tap_mut(|u| {
-            u.path_segments_mut().unwrap().push("audio_query");
-            u.query_pairs_mut()
-                .clear()
-                .append_pair("text", text)
-                .append_pair("speaker", &style_id.to_string());
-        });
-
-        let resp = self.inner.client.post(url).send().await.map_err(|_| ())?;
-        let query_text = resp
-            .error_for_status()
-            .map_err(|_| ())?
-            .text()
-            .await
-            .map_err(|_| ())?;
-
-        let url = self.inner.host.clone().tap_mut(|u| {
-            u.path_segments_mut().unwrap().push("synthesis");
-            u.query_pairs_mut()
-                .clear()
-                .append_pair("speaker", &style_id.to_string());
-        });
-
-        let resp = self
-            .inner
-            .client
-            .post(url)
-            .header(CONTENT_TYPE, "application/json")
-            .body(query_text)
-            .send()
-            .await
-            .map_err(|_| ())?
-            .error_for_status()
-            .map_err(|_| ())?;
-
-        Ok(resp.bytes().await.unwrap())
+        })
     }
 }

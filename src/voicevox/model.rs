@@ -63,6 +63,7 @@ structstruck::strike! {
         pub policy: String,
         pub styles: Vec<
             #[derive(Debug)]
+            #[allow(dead_code)]
             pub struct SpeakerStyle<'a> {
                 pub name: String,
                 pub id: StyleId,
@@ -71,18 +72,4 @@ structstruck::strike! {
             }
         >,
     }
-}
-
-#[derive(Debug)]
-pub struct SpeakerStyleView<'a> {
-    pub speaker_i: usize,
-    pub speaker_name: &'a str,
-    pub speaker_policy: &'a str,
-    pub style_i: usize,
-    pub style_name: &'a str,
-    #[allow(dead_code)]
-    pub style_id: StyleId,
-    pub style_icon: Cow<'a, [u8]>,
-    #[allow(dead_code)]
-    pub style_voice_samples: &'a Vec<Cow<'a, [u8]>>,
 }
