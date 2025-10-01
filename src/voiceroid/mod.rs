@@ -12,6 +12,10 @@ use crate::tts::{CharacterView, StyleView, TtsService};
 
 mod api;
 
+fn default_character_volume () -> HashMap<String, f64> {
+    HashMap::new()
+}
+
 fn default_master_volume() -> f64 {
     1.0
 }
@@ -22,6 +26,8 @@ pub struct Setting {
     pub headers: HashMap<String, String>,
     #[serde(default = "default_master_volume")]
     pub master_volume: f64,
+    #[serde(default = "default_character_volume")]
+    pub character_volume: HashMap<String, f64>,
 }
 
 #[derive(Debug)]
@@ -30,6 +36,7 @@ struct VoiceroidInner {
     url: reqwest::Url,
     voices: Vec<api::Voice>,
     master_volume: f64,
+    character_volume: HashMap<String, f64>,
 }
 
 #[derive(Clone, Debug)]
@@ -72,6 +79,7 @@ impl Voiceroid {
             inner: Arc::new(VoiceroidInner {
                 url: setting.url.clone(),
                 master_volume: setting.master_volume,
+                character_volume: setting.character_volume.clone(),
                 voices,
                 client,
             }),
@@ -87,6 +95,13 @@ impl TtsService for Voiceroid {
         });
 
         let (voice_id, style) = style_id.split_once('/').context("Invalid StyleID")?;
+
+        let character_volume = self
+            .inner
+            .character_volume
+            .get(voice_id)
+            .copied()
+            .unwrap_or(1.0);
 
         let voice = self
             .inner
@@ -106,7 +121,7 @@ impl TtsService for Voiceroid {
         }
 
         let query = api::TtsRequest {
-            volume: self.inner.master_volume,
+            volume: self.inner.master_volume * character_volume,
             is_kansai,
             text: text.to_string(),
             voice_id: voice_id.to_string(),
