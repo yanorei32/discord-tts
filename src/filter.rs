@@ -49,44 +49,63 @@ where
     let s = replace_uri(&s);
     let s = replace_emoji(&s);
     let s = replace_unicode_emoji(&s);
-    // Attachment::dimensions: If this attachment is an image, then a tuple of the width and height in pixels is returned.
-    let s = append_image_attachment_notification(
-        &s,
-        mes.attachments
-            .iter()
-            .filter_map(serenity::all::Attachment::dimensions)
-            .count(),
-    );
 
+    // Attachment::dimensions: If this attachment is an image, then a tuple of the width and height in pixels is returned.
+    let image_count = mes
+        .attachments
+        .iter()
+        .filter_map(serenity::all::Attachment::dimensions)
+        .count();
+
+    let s = append_attachment_notification(&s, image_count, mes.attachments.len() - image_count);
     let s = replace_codeblock(&s);
     let s = suppress_whitespaces(&s)?;
 
     Some(s.to_string())
 }
 
-fn append_image_attachment_notification(body: &str, image_count: usize) -> Cow<'_, str> {
-    if image_count > 0 {
-        let image_text = if image_count == 1 {
-            "画像".to_string()
-        } else {
-            format!("画像{image_count}枚")
-        };
-
-        let mut ret = body.to_string();
-
-        if body.is_empty() {
-            ret.push_str(&image_text);
-            ret.push_str("が送信されました");
-        } else {
-            ret.push('。');
-            ret.push_str(&image_text);
-            ret.push_str("添付");
-        }
-
-        ret.into()
-    } else {
-        body.into()
+fn append_attachment_notification(
+    body: &str,
+    image_count: usize,
+    file_count: usize,
+) -> Cow<'_, str> {
+    if image_count == 0 && file_count == 0 {
+        return body.into();
     }
+
+    let image_text = match image_count {
+        0 => String::new(),
+        1 => "画像".to_string(),
+        n => format!("画像{n}枚"),
+    };
+
+    let file_text = match file_count {
+        0 => String::new(),
+        1 => "ファイル".to_string(),
+        n => format!("ファイル{n}つ"),
+    };
+
+    let mut ret = body.to_string();
+
+    if !body.is_empty() {
+        ret.push('。');
+    }
+
+    ret.push_str(&image_text);
+
+    if image_count != 0 && file_count != 0 {
+        ret.push('と');
+    }
+
+    ret.push_str(&file_text);
+
+    if body.is_empty() {
+        ret.push_str("が送信されました");
+    } else {
+        ret.push_str("添付");
+    }
+
+    ret.into()
 }
 
 async fn sanity_mention<T>(ctx: T, mes: &Message) -> String
@@ -231,22 +250,48 @@ fn replace_rule_unit_test() {
         replace_codeblock("Codeblock\n```\nMultiline\n```\n!"),
         "Codeblock\n。コード省略。\n!"
     );
-    assert_eq!(append_image_attachment_notification("", 0), "");
+
+    assert_eq!(append_attachment_notification("", 0, 0), "");
+    assert_eq!(append_attachment_notification("あ", 0, 0), "あ");
+
     assert_eq!(
-        append_image_attachment_notification("", 1),
+        append_attachment_notification("", 1, 0),
         "画像が送信されました"
     );
     assert_eq!(
-        append_image_attachment_notification("", 4),
+        append_attachment_notification("", 4, 0),
         "画像4枚が送信されました"
     );
-    assert_eq!(append_image_attachment_notification("あ", 0), "あ");
+    assert_eq!(append_attachment_notification("あ", 1, 0), "あ。画像添付");
     assert_eq!(
-        append_image_attachment_notification("あ", 1),
-        "あ。画像添付"
+        append_attachment_notification("あ", 4, 0),
+        "あ。画像4枚添付"
+    );
+
+    assert_eq!(
+        append_attachment_notification("", 0, 1),
+        "ファイルが送信されました"
     );
     assert_eq!(
-        append_image_attachment_notification("あ", 4),
-        "あ。画像4枚添付"
+        append_attachment_notification("", 0, 4),
+        "ファイル4つが送信されました"
+    );
+    assert_eq!(
+        append_attachment_notification("あ", 0, 1),
+        "あ。ファイル添付"
+    );
+    assert_eq!(
+        append_attachment_notification("あ", 0, 4),
+        "あ。ファイル4つ添付"
+    );
+
+    assert_eq!(
+        append_attachment_notification("あ", 1, 4),
+        "あ。画像とファイル4つ添付"
+    );
+
+    assert_eq!(
+        append_attachment_notification("", 4, 1),
+        "画像4枚とファイルが送信されました"
     );
 }
