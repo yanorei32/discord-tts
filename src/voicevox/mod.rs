@@ -32,14 +32,13 @@ pub struct Setting {
 
 #[derive(Debug, Clone)]
 pub struct Voicevox {
-    inner: Arc<VoicevoxInner<'static>>,
+    inner: Arc<VoicevoxInner>,
 }
 
 #[derive(Debug)]
-struct VoicevoxInner<'a> {
+struct VoicevoxInner {
     host: Url,
     client: reqwest::Client,
-    speakers: Vec<model::Speaker<'a>>,
     master_volume: f64,
 }
 
@@ -108,62 +107,13 @@ impl TtsService for Voicevox {
     }
 
     async fn styles(&self) -> Result<Vec<CharacterView>> {
-        Ok(self.inner
-            .speakers
-            .iter()
-            .map(|speaker| {
-                let name = speaker.name.to_string();
-
-                let policy = match &speaker.policy {
-                    policy if policy.starts_with("# Aivis Common Model License (ACML) 1.0\n") =>
-                        "この音声は [Aivis Common Model License (ACML) 1.0](https://github.com/Aivis-Project/ACML/blob/master/ACML-1.0.md) により提供されています。".to_string(),
-                    policy if policy.starts_with("# Aivis Common Model License (ACML) - Non Commercial 1.0\n") =>
-                        "この音声は [Aivis Common Model License (ACML) - Non Commercial 1.0](https://github.com/Aivis-Project/ACML/blob/master/ACML-NC-1.0.md) により提供されています。".to_string(),
-                    policy => policy.chars().take(512).collect::<String>(),
-                };
-
-                let styles: Vec<_> = speaker
-                    .styles
-                    .iter()
-                    .map(|style| StyleView {
-                        name: style.name.to_string(),
-                        id: format!("{}", style.id),
-                        icon: style.icon.to_vec(),
-                    })
-                    .collect();
-
-                CharacterView {
-                    name,
-                    policy,
-                    styles,
-                }
-            })
-            .collect())
-    }
-}
-
-impl Voicevox {
-    pub async fn new(setting: &Setting) -> Result<Voicevox> {
-        let speakers_uri = setting.url.clone().tap_mut(|u| {
+        let speakers_uri = self.inner.host.clone().tap_mut(|u| {
             u.path_segments_mut().unwrap().push("speakers");
         });
 
-        let mut headers = HeaderMap::new();
-
-        for (key, value) in &setting.headers {
-            headers.insert(
-                HeaderName::from_bytes(key.as_bytes()).context("Invalid HeaderName")?,
-                value.parse().context("Invalid HeaderValue")?,
-            );
-        }
-
-        let client = reqwest::ClientBuilder::new()
-            .default_headers(headers)
-            .user_agent("discord-tts-voicevox/0.0.0")
-            .build()
-            .unwrap();
-
-        let speakers: Vec<model::api::Speaker> = client
+        let speakers: Vec<model::api::Speaker> = self
+            .inner
+            .client
             .get(speakers_uri)
             .send()
             .await
@@ -177,14 +127,14 @@ impl Voicevox {
         let speaker_infos: Vec<_> = speakers
             .iter()
             .map(|s| {
-                let url = setting.url.clone().tap_mut(|u| {
+                let url = self.inner.host.clone().tap_mut(|u| {
                     u.path_segments_mut().unwrap().push("speaker_info");
                     u.query_pairs_mut()
                         .clear()
                         .append_pair("speaker_uuid", &s.speaker_uuid);
                 });
 
-                let client = client.clone();
+                let client = self.inner.client.clone();
 
                 async move {
                     Ok(client
@@ -234,6 +184,57 @@ impl Voicevox {
             .collect();
 
         let speakers = speakers?;
+
+        Ok(speakers
+            .iter()
+            .map(|speaker| {
+                let name = speaker.name.to_string();
+
+                let policy = match &speaker.policy {
+                    policy if policy.starts_with("# Aivis Common Model License (ACML) 1.0\n") =>
+                        "この音声は [Aivis Common Model License (ACML) 1.0](https://github.com/Aivis-Project/ACML/blob/master/ACML-1.0.md) により提供されています。".to_string(),
+                    policy if policy.starts_with("# Aivis Common Model License (ACML) - Non Commercial 1.0\n") =>
+                        "この音声は [Aivis Common Model License (ACML) - Non Commercial 1.0](https://github.com/Aivis-Project/ACML/blob/master/ACML-NC-1.0.md) により提供されています。".to_string(),
+                    policy => policy.chars().take(512).collect::<String>(),
+                };
+
+                let styles: Vec<_> = speaker
+                    .styles
+                    .iter()
+                    .map(|style| StyleView {
+                        name: style.name.to_string(),
+                        id: format!("{}", style.id),
+                        icon: style.icon.to_vec(),
+                    })
+                    .collect();
+
+                CharacterView {
+                    name,
+                    policy,
+                    styles,
+                }
+            })
+            .collect())
+    }
+}
+
+impl Voicevox {
+    pub async fn new(setting: &Setting) -> Result<Voicevox> {
+        let mut headers = HeaderMap::new();
+
+        for (key, value) in &setting.headers {
+            headers.insert(
+                HeaderName::from_bytes(key.as_bytes()).context("Invalid HeaderName")?,
+                value.parse().context("Invalid HeaderValue")?,
+            );
+        }
+
+        let client = reqwest::ClientBuilder::new()
+            .default_headers(headers)
+            .user_agent("discord-tts-voicevox/0.0.0")
+            .build()
+            .unwrap();
+
         let host = setting.url.clone();
 
         Ok(Voicevox {
@@ -241,7 +242,6 @@ impl Voicevox {
                 master_volume: setting.master_volume,
                 host,
                 client,
-                speakers,
             }),
         })
     }
