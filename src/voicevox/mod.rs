@@ -14,7 +14,7 @@ use tap::Tap;
 
 use crate::tts::{CharacterView, StyleView, TtsService};
 
-pub mod model;
+mod api;
 
 fn default_master_volume() -> f64 {
     1.0
@@ -109,7 +109,7 @@ impl TtsService for Voicevox {
             u.path_segments_mut().unwrap().push("speakers");
         });
 
-        let speakers: Vec<model::api::Speaker> = self
+        let speakers: Vec<api::Speaker> = self
             .inner
             .client
             .get(speakers_uri)
@@ -142,7 +142,7 @@ impl TtsService for Voicevox {
                         .context("Failed to get /speaker_info (send)")?
                         .error_for_status()
                         .context("Failed to get /speaker_info (status)")?
-                        .json::<model::api::SpeakerInfo>()
+                        .json::<api::SpeakerInfo>()
                         .await
                         .context("Failed to get /speaker_info (body)")?)
                 }
