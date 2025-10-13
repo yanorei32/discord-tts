@@ -12,7 +12,7 @@ use crate::tts::{CharacterView, StyleView, TtsService};
 
 mod api;
 
-fn default_character_volume () -> HashMap<String, f64> {
+fn default_character_volume() -> HashMap<String, f64> {
     HashMap::new()
 }
 
@@ -147,13 +147,9 @@ impl TtsService for Voiceroid {
         Ok(resp.to_vec())
     }
 
-    fn is_available(&self, style_id: &str) -> bool {
-        let (voice_id, _style) = style_id.split_once('/').context("Invalid StyleID").unwrap();
-        self.inner.voices.iter().any(|v| v.id == voice_id)
-    }
-
-    fn styles(&self) -> Vec<CharacterView> {
-        self.inner
+    async fn styles(&self) -> Result<Vec<CharacterView>> {
+        Ok(self
+            .inner
             .voices
             .iter()
             .map(|voice| {
@@ -183,6 +179,6 @@ impl TtsService for Voiceroid {
                     styles: vec![normal, alt],
                 }
             })
-            .collect()
+            .collect())
     }
 }

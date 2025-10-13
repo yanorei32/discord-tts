@@ -23,14 +23,13 @@ pub struct CharacterView {
 #[async_trait]
 pub trait TtsService: std::fmt::Debug + Send + Sync {
     async fn tts(&self, style_id: &str, text: &str) -> Result<Vec<u8>>;
-    fn is_available(&self, style_id: &str) -> bool;
-    fn styles(&self) -> Vec<CharacterView>;
+    async fn styles(&self) -> Result<Vec<CharacterView>>;
 }
 
 #[derive(Derivative)]
 #[derivative(Debug)]
 struct TtsServicesInner {
-    services: RwLock<HashMap<String, Box<dyn TtsService>>>,
+    services: RwLock<HashMap<String, (Box<dyn TtsService>, Vec<CharacterView>)>>,
 }
 
 #[derive(Clone, Debug)]
@@ -52,8 +51,8 @@ impl TtsServices {
 
         let mut styles = HashMap::new();
 
-        for (id, service) in services.iter() {
-            styles.insert(id.clone(), service.styles());
+        for (id, (_service, service_styles)) in services.iter() {
+            styles.insert(id.clone(), service_styles.clone());
         }
 
         styles
@@ -66,7 +65,9 @@ impl TtsServices {
             anyhow::bail!("'{service_id}' is already taken");
         }
 
-        services.insert(service_id.to_owned(), service);
+        let styles = service.styles().await?;
+
+        services.insert(service_id.to_owned(), (service, styles));
 
         Ok(())
     }
@@ -74,17 +75,21 @@ impl TtsServices {
     pub async fn is_available(&self, service_id: &str, style_id: &str) -> bool {
         let services = self.inner.services.read().await;
 
-        let Some(service) = services.get(service_id) else {
+        let Some((_service, styles)) = services.get(service_id) else {
             return false;
         };
 
-        service.is_available(style_id)
+        styles
+            .iter()
+            .map(|s| s.styles.iter())
+            .flatten()
+            .any(|style| style.id == style_id)
     }
 
     pub async fn tts(&self, service_id: &str, style_id: &str, text: &str) -> Result<Vec<u8>> {
         let services = self.inner.services.read().await;
 
-        let Some(service) = services.get(service_id) else {
+        let Some((service, _styles)) = services.get(service_id) else {
             anyhow::bail!("'{service_id}' is not registered");
         };
 

@@ -107,19 +107,8 @@ impl TtsService for Voicevox {
         Ok(bin.to_vec())
     }
 
-    fn is_available(&self, style_id: &str) -> bool {
-        let style_id: i64 = style_id.parse().unwrap();
-
-        self.inner
-            .speakers
-            .iter()
-            .map(|speaker| speaker.styles.iter())
-            .flatten()
-            .any(|style| style.id == style_id)
-    }
-
-    fn styles(&self) -> Vec<CharacterView> {
-        self.inner
+    async fn styles(&self) -> Result<Vec<CharacterView>> {
+        Ok(self.inner
             .speakers
             .iter()
             .map(|speaker| {
@@ -149,7 +138,7 @@ impl TtsService for Voicevox {
                     styles,
                 }
             })
-            .collect()
+            .collect())
     }
 }
 
