@@ -1,4 +1,3 @@
-use std::borrow::Cow;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -14,7 +13,6 @@ use serde::Deserialize;
 use tap::Tap;
 
 use crate::tts::{CharacterView, StyleView, TtsService};
-use crate::voicevox::model::{Speaker, SpeakerStyle};
 
 pub mod model;
 
@@ -155,42 +153,25 @@ impl TtsService for Voicevox {
         let speaker_infos: Result<Vec<_>> = speaker_infos.into_iter().collect();
         let speaker_infos = speaker_infos?;
 
-        let speakers: Result<Vec<model::Speaker>> = speakers
+        speakers
             .into_iter()
             .zip(speaker_infos.into_iter())
             .map(|(speaker, speaker_info)| {
-                let speaker_styles: Vec<model::SpeakerStyle> = speaker
+                let speaker_styles: Vec<StyleView> = speaker
                     .styles
                     .into_iter()
                     .zip(speaker_info.style_infos.into_iter())
-                    .map(|(style, style_info)| SpeakerStyle {
-                        icon: Cow::Owned(style_info.icon.bin),
-                        id: style_info.id,
-                        voice_samples: style_info
-                            .voice_samples
-                            .into_iter()
-                            .map(|sample| Cow::Owned(sample.bin))
-                            .collect(),
-                        name: style.name,
+                    .map(|(style, style_info)| {
+                        assert_eq!(style.id, style_info.id);
+                        StyleView {
+                            icon: style_info.icon.bin,
+                            id: format!("{}", style_info.id),
+                            name: style.name,
+                        }
                     })
                     .collect();
 
-                Ok(Speaker {
-                    name: speaker.name,
-                    policy: speaker_info.policy,
-                    styles: speaker_styles,
-                })
-            })
-            .collect();
-
-        let speakers = speakers?;
-
-        Ok(speakers
-            .iter()
-            .map(|speaker| {
-                let name = speaker.name.to_string();
-
-                let policy = match &speaker.policy {
+                let policy = match &speaker_info.policy {
                     policy if policy.starts_with("# Aivis Common Model License (ACML) 1.0\n") =>
                         "この音声は [Aivis Common Model License (ACML) 1.0](https://github.com/Aivis-Project/ACML/blob/master/ACML-1.0.md) により提供されています。".to_string(),
                     policy if policy.starts_with("# Aivis Common Model License (ACML) - Non Commercial 1.0\n") =>
@@ -198,23 +179,13 @@ impl TtsService for Voicevox {
                     policy => policy.chars().take(512).collect::<String>(),
                 };
 
-                let styles: Vec<_> = speaker
-                    .styles
-                    .iter()
-                    .map(|style| StyleView {
-                        name: style.name.to_string(),
-                        id: format!("{}", style.id),
-                        icon: style.icon.to_vec(),
-                    })
-                    .collect();
-
-                CharacterView {
-                    name,
+                Ok(CharacterView {
+                    name: speaker.name,
                     policy,
-                    styles,
-                }
+                    styles: speaker_styles,
+                })
             })
-            .collect())
+            .collect()
     }
 }
 
