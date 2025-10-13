@@ -1,0 +1,43 @@
+name: Review
+
+on:
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/review.yml'
+
+
+env:
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  rust:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5.0.0
+
+      - name: Get Rust toolchain
+        id: toolchain
+        run: |
+          awk -F'[ ="]+' '$1 == "channel" { print "toolchain=" $2 }' rust-toolchain >> "$GITHUB_OUTPUT"
+
+      - name: install clippy
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ steps.toolchain.outputs.toolchain }}
+          components: clippy
+
+      - name: cache dependencies
+        uses: Swatinem/rust-cache@v2.8.1
+
+      - name: clippy check
+        uses: sksat/action-clippy@v1.1.1
+        with:
+          reporter: github-pr-review
+
+      - name: unit test
+        run: |
+          cargo test --no-run --locked
+          cargo test
