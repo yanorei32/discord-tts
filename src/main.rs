@@ -63,7 +63,7 @@ impl EventHandler for Bot {
     }
 
     async fn message(&self, ctx: Context, msg: Message) {
-        let Some(content) = filter::filter(&ctx, &msg).await else {
+        let Some(content) = filter::filter(&ctx, &msg) else {
             return;
         };
 
@@ -159,7 +159,7 @@ async fn main() {
                     .register(
                         service_id,
                         Box::new(
-                            Voiceroid::new(&config)
+                            Voiceroid::new(config)
                                 .await
                                 .with_context(|| {
                                     format!("Failed to initialize VOICEROID backend ({service_id})")
@@ -174,8 +174,7 @@ async fn main() {
                     .register(
                         service_id,
                         Box::new(
-                            Voicevox::new(&config)
-                                .await
+                            Voicevox::new(config)
                                 .with_context(|| {
                                     format!("Failed to initialize VOICEROID backend ({service_id})")
                                 })
@@ -196,7 +195,7 @@ async fn main() {
 
     let mut client = Client::builder(&cli.discord_token, intents)
         .event_handler(Bot {
-            tts_services: tts_services,
+            tts_services,
             prefix: cli.command_prefix.clone().unwrap_or_default(),
         })
         .register_songbird()

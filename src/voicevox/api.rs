@@ -22,6 +22,7 @@ structstruck::strike! {
     #[derive(Deserialize, Debug)]
     pub struct Speaker {
         pub name: String,
+        #[allow(clippy::struct_field_names)]
         pub speaker_uuid: String,
         pub styles: Vec<
             #[derive(Deserialize, Debug)]

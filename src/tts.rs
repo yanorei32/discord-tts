@@ -29,6 +29,7 @@ pub trait TtsService: std::fmt::Debug + Send + Sync {
 #[derive(Derivative)]
 #[derivative(Debug)]
 struct TtsServicesInner {
+    #[allow(clippy::type_complexity)]
     services: RwLock<HashMap<String, (Box<dyn TtsService>, Vec<CharacterView>)>>,
 }
 
@@ -61,7 +62,7 @@ impl TtsServices {
     pub async fn register(&self, service_id: &str, service: Box<dyn TtsService>) -> Result<()> {
         let mut services = self.inner.services.write().await;
 
-        if let Some(_) = services.get(service_id) {
+        if services.get(service_id).is_some() {
             anyhow::bail!("'{service_id}' is already taken");
         }
 
@@ -81,8 +82,7 @@ impl TtsServices {
 
         styles
             .iter()
-            .map(|s| s.styles.iter())
-            .flatten()
+            .flat_map(|s| s.styles.iter())
             .any(|style| style.id == style_id)
     }
 

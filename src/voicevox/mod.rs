@@ -48,7 +48,7 @@ impl TtsService for Voicevox {
             u.query_pairs_mut()
                 .clear()
                 .append_pair("text", text)
-                .append_pair("speaker", &style_id.to_string());
+                .append_pair("speaker", style_id);
         });
 
         let resp = self
@@ -70,7 +70,7 @@ impl TtsService for Voicevox {
             u.path_segments_mut().unwrap().push("synthesis");
             u.query_pairs_mut()
                 .clear()
-                .append_pair("speaker", &style_id.to_string());
+                .append_pair("speaker", style_id);
         });
 
         let query_text = match json::parse(&query_text).context("Faield to parse query")? {
@@ -135,7 +135,7 @@ impl TtsService for Voicevox {
                 let client = self.inner.client.clone();
 
                 async move {
-                    Ok(client
+                    client
                         .get(url)
                         .send()
                         .await
@@ -144,7 +144,7 @@ impl TtsService for Voicevox {
                         .context("Failed to get /speaker_info (status)")?
                         .json::<api::SpeakerInfo>()
                         .await
-                        .context("Failed to get /speaker_info (body)")?)
+                        .context("Failed to get /speaker_info (body)")
                 }
             })
             .collect();
@@ -155,12 +155,12 @@ impl TtsService for Voicevox {
 
         speakers
             .into_iter()
-            .zip(speaker_infos.into_iter())
+            .zip(speaker_infos)
             .map(|(speaker, speaker_info)| {
                 let speaker_styles: Vec<StyleView> = speaker
                     .styles
                     .into_iter()
-                    .zip(speaker_info.style_infos.into_iter())
+                    .zip(speaker_info.style_infos)
                     .map(|(style, style_info)| {
                         assert_eq!(style.id, style_info.id);
                         StyleView {
@@ -190,7 +190,7 @@ impl TtsService for Voicevox {
 }
 
 impl Voicevox {
-    pub async fn new(setting: &Setting) -> Result<Voicevox> {
+    pub fn new(setting: &Setting) -> Result<Voicevox> {
         let mut headers = HeaderMap::new();
 
         for (key, value) in &setting.headers {

@@ -19,7 +19,7 @@ static EXTERNAL_EMOJI_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"<a?:\w+:\d+
 static EMOJI_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r":\w+:").unwrap());
 static URI_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"[A-Za-z][A-Za-z0-9+\-.]*:\S+").unwrap());
 
-pub async fn filter<T>(ctx: T, mes: &'_ Message) -> Option<String>
+pub fn filter<T>(ctx: T, mes: &'_ Message) -> Option<String>
 where
     T: CacheHttp + AsRef<Cache>,
 {
@@ -31,7 +31,7 @@ where
         return None;
     }
 
-    let s = sanity_mention(ctx, mes).await;
+    let s = sanity_mention(ctx, mes);
     let s = legacy_command_compatibility(&s)?;
     let s = legacy_ping_command_compatibility(s)?;
     let s = suppress_by_semicolon(s)?;
@@ -108,7 +108,7 @@ fn append_attachment_notification(
     ret.into()
 }
 
-async fn sanity_mention<T>(ctx: T, mes: &Message) -> String
+fn sanity_mention<T>(ctx: T, mes: &Message) -> String
 where
     T: CacheHttp + AsRef<Cache>,
 {

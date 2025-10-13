@@ -57,11 +57,11 @@ pub async fn update(ctx: &Context, interaction: ComponentInteraction, tts_servic
                 unreachable!("Illegal style_selector call");
             };
 
-            (parse_tts_style(&values.first().unwrap()), true)
+            (parse_tts_style(values.first().unwrap()), true)
         }
         ComponentInteractionData { custom_id, .. } if custom_id.starts_with("apply_") => {
             let (_apply, style) = custom_id.split_once('_').unwrap();
-            let style = parse_tts_style(&style);
+            let style = parse_tts_style(style);
             PERSISTENT_DB.store_style_id(interaction.user.id, &style);
 
             (style, false)
@@ -80,6 +80,7 @@ pub async fn update(ctx: &Context, interaction: ComponentInteraction, tts_servic
         .unwrap();
 }
 
+#[allow(clippy::too_many_lines)]
 pub async fn create_modal(
     tts_services: &TtsServices,
     voice_setting: &TtsStyle,
@@ -121,7 +122,7 @@ pub async fn create_modal(
 
     let mut current_page_id = String::new();
 
-    for (service, characters) in styles.iter() {
+    for (service, characters) in &styles {
         if characters.len() <= PAGE_SIZE {
             let first_style_id = &characters.first().unwrap().styles.first().unwrap().id;
             let transition_target_id = format!("{service}_!DISCORDTTS!_{first_style_id}");
@@ -129,14 +130,14 @@ pub async fn create_modal(
             pages.push((service.to_string(), transition_target_id.clone()));
 
             if service == &voice_setting.service_id {
-                current_page_id = transition_target_id.clone();
-                current_character_items = characters.to_vec();
+                current_page_id = transition_target_id;
+                current_character_items.clone_from(characters);
             }
 
             continue;
         }
 
-        let page_count = (characters.len() + PAGE_SIZE - 1) / PAGE_SIZE;
+        let page_count = characters.len().div_ceil(PAGE_SIZE);
         for (page_index, page_characters) in characters.chunks(PAGE_SIZE).enumerate() {
             let page_index = page_index + 1;
 
@@ -148,17 +149,15 @@ pub async fn create_modal(
                 transition_target_id.clone(),
             ));
 
-            if service == &voice_setting.service_id {
-                if page_characters
+            if service == &voice_setting.service_id
+                && page_characters
                     .iter()
-                    .map(|character| character.styles.iter())
-                    .flatten()
-                    .any(|style| &style.id == &voice_setting.style_id)
+                    .flat_map(|character| character.styles.iter())
+                    .any(|style| style.id == voice_setting.style_id)
                 {
-                    current_page_id = transition_target_id.clone();
+                    current_page_id = transition_target_id;
                     current_character_items = page_characters.to_vec();
                 }
-            }
         }
     }
 
@@ -177,10 +176,10 @@ pub async fn create_modal(
         if character
             .styles
             .iter()
-            .any(|style| &style.id == &voice_setting.style_id)
+            .any(|style| style.id == voice_setting.style_id)
         {
             current_character_id = transition_target_id;
-            current_style_items = character.styles.to_vec();
+            current_style_items = character.styles;
         }
     }
 
@@ -216,7 +215,7 @@ pub async fn create_modal(
     let page_options: Vec<_> = pages
         .into_iter()
         .map(|(display, transition_to)| {
-            let is_default = &current_page_id == &transition_to;
+            let is_default = current_page_id == transition_to;
             CreateSelectMenuOption::new(display, transition_to).default_selection(is_default)
         })
         .collect();
@@ -226,7 +225,7 @@ pub async fn create_modal(
     let character_options: Vec<_> = characters
         .into_iter()
         .map(|(display, transition_to)| {
-            let is_default = &current_character_id == &transition_to;
+            let is_default = current_character_id == transition_to;
             CreateSelectMenuOption::new(display, transition_to).default_selection(is_default)
         })
         .collect();
@@ -241,7 +240,7 @@ pub async fn create_modal(
     let style_options: Vec<_> = styles
         .into_iter()
         .map(|(display, transition_to)| {
-            let is_default = &apply_target_id == &transition_to;
+            let is_default = apply_target_id == transition_to;
             CreateSelectMenuOption::new(display, transition_to).default_selection(is_default)
         })
         .collect();
