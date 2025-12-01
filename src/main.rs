@@ -10,6 +10,7 @@ mod tts;
 mod voiceroid;
 mod voicevox;
 mod wavsource;
+mod winrttts;
 
 use std::io::Cursor;
 
@@ -35,6 +36,7 @@ use crate::model::TtsServiceConfig;
 use crate::tts::TtsServices;
 use crate::voiceroid::Voiceroid;
 use crate::voicevox::Voicevox;
+use crate::winrttts::WinRTTTS;
 
 struct Bot {
     tts_services: TtsServices,
@@ -193,6 +195,21 @@ async fn main() {
                             KTTS::new(config)
                                 .with_context(|| {
                                     format!("Failed to initialize KTTS backend ({service_id})")
+                                })
+                                .unwrap(),
+                        ),
+                    )
+                    .await
+            }
+            TtsServiceConfig::WinRTTTS(config) => {
+                tts_services
+                    .register(
+                        service_id,
+                        Box::new(
+                            WinRTTTS::new(config)
+                                .await
+                                .with_context(|| {
+                                    format!("Failed to initialize WinRTTTS backend ({service_id})")
                                 })
                                 .unwrap(),
                         ),

@@ -68,7 +68,7 @@ impl KTTS {
 
         let client = reqwest::ClientBuilder::new()
             .default_headers(headers)
-            .user_agent("discord-tts-voiceroid/0.0.0")
+            .user_agent("discord-tts-ktts/0.0.0")
             .build()
             .unwrap();
 

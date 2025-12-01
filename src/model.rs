@@ -29,6 +29,7 @@ pub enum TtsServiceConfig {
     Voiceroid(crate::voiceroid::Setting),
     Voicevox(crate::voicevox::Setting),
     KTTS(crate::ktts::Setting),
+    WinRTTTS(crate::winrttts::Setting),
 }
 
 #[derive(Deserialize, Debug)]
