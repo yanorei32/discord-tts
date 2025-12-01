@@ -3,12 +3,13 @@
 mod commands;
 mod db;
 mod filter;
+mod ktts;
 mod model;
 mod songbird_handler;
 mod tts;
-mod wavsource;
-mod voicevox;
 mod voiceroid;
+mod voicevox;
+mod wavsource;
 
 use std::io::Cursor;
 
@@ -29,6 +30,7 @@ use serenity::{
 use songbird::SerenityInit;
 
 use crate::db::PERSISTENT_DB;
+use crate::ktts::KTTS;
 use crate::model::TtsServiceConfig;
 use crate::tts::TtsServices;
 use crate::voiceroid::Voiceroid;
@@ -176,7 +178,21 @@ async fn main() {
                         Box::new(
                             Voicevox::new(config)
                                 .with_context(|| {
-                                    format!("Failed to initialize VOICEROID backend ({service_id})")
+                                    format!("Failed to initialize VOICEVOX backend ({service_id})")
+                                })
+                                .unwrap(),
+                        ),
+                    )
+                    .await
+            }
+            TtsServiceConfig::KTTS(config) => {
+                tts_services
+                    .register(
+                        service_id,
+                        Box::new(
+                            KTTS::new(config)
+                                .with_context(|| {
+                                    format!("Failed to initialize KTTS backend ({service_id})")
                                 })
                                 .unwrap(),
                         ),

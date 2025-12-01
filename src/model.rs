@@ -28,6 +28,7 @@ pub struct Cli {
 pub enum TtsServiceConfig {
     Voiceroid(crate::voiceroid::Setting),
     Voicevox(crate::voicevox::Setting),
+    KTTS(crate::ktts::Setting),
 }
 
 #[derive(Deserialize, Debug)]
