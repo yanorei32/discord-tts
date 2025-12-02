@@ -20,9 +20,14 @@ fn default_master_volume() -> f64 {
     1.0
 }
 
+fn default_headers() -> HashMap<String, String> {
+    HashMap::new()
+}
+
 #[derive(Deserialize, Debug, Clone)]
 pub struct Setting {
     pub url: reqwest::Url,
+    #[serde(default = "default_headers")]
     pub headers: HashMap<String, String>,
     #[serde(default = "default_master_volume")]
     pub master_volume: f64,
@@ -136,8 +141,7 @@ impl TtsService for Voiceroid {
             .await
             .context("Failed to post /api/tts (connect)")?
             .error_for_status()
-            .context("Failed to post /api/tts (status_code)")
-            .unwrap();
+            .context("Failed to post /api/tts (status_code)")?;
 
         let resp = resp
             .bytes()

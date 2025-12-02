@@ -24,6 +24,7 @@ pub struct Cli {
     pub persistent_path: PathBuf,
 }
 
+#[allow(clippy::upper_case_acronyms)]
 #[derive(Deserialize, Debug)]
 pub enum TtsServiceConfig {
     Voiceroid(crate::voiceroid::Setting),

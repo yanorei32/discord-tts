@@ -112,7 +112,7 @@ fn sanity_mention<T>(ctx: T, mes: &Message) -> String
 where
     T: CacheHttp + AsRef<Cache>,
 {
-    let mut s = mes.content.to_string();
+    let mut s = mes.content.clone();
 
     let guild = mes.guild(ctx.cache().unwrap()).unwrap();
 

@@ -20,9 +20,15 @@ fn default_master_volume() -> f32 {
     1.0
 }
 
+fn default_headers() -> HashMap<String, String> {
+    HashMap::new()
+}
+
 #[derive(Deserialize, Debug, Clone)]
 pub struct Setting {
     pub url: reqwest::Url,
+
+    #[serde(default = "default_headers")]
     pub headers: HashMap<String, String>,
 
     #[serde(default = "default_master_volume")]
@@ -79,14 +85,14 @@ impl WinRTTTS {
         let mut voices: Vec<api::Voice> =
             voices.json().await.context("Failed to parse /api/voices")?;
 
-        let first_voice = voices.get(0).context("Failed to get first voice")?;
+        let first_voice = voices.first().context("Failed to get first voice")?;
         let (registry_base_path, _name) = first_voice
             .id
             .rsplit_once('\\')
             .context("Failed to parse registry path")?;
         let registry_base_path = registry_base_path.to_string();
 
-        for voice in voices.iter_mut() {
+        for voice in &mut voices {
             let (path, name) = voice
                 .id
                 .rsplit_once('\\')
@@ -141,8 +147,7 @@ impl TtsService for WinRTTTS {
             .await
             .context("Failed to post /api/tts (connect)")?
             .error_for_status()
-            .context("Failed to post /api/tts (status_code)")
-            .unwrap();
+            .context("Failed to post /api/tts (status_code)")?;
 
         let resp = resp
             .bytes()
@@ -159,15 +164,15 @@ impl TtsService for WinRTTTS {
             self.inner
                 .voices
                 .iter()
-                .map(|v| (v.language.to_string(), vec![])),
+                .map(|v| (v.language.clone(), vec![])),
         );
 
         for voice in &self.inner.voices {
             let target = styles.get_mut(&voice.language).unwrap();
 
             target.push(StyleView {
-                name: voice.display_name.to_string(),
-                id: voice.id.to_string(),
+                name: voice.display_name.clone(),
+                id: voice.id.clone(),
                 icon: vec![],
             });
         }
@@ -175,7 +180,7 @@ impl TtsService for WinRTTTS {
         Ok(styles
             .into_iter()
             .map(|(language, styles)| CharacterView {
-                name: language.to_string(),
+                name: language.clone(),
                 policy: "Microsoft Windows利用規約に則り、ご利用ください".to_string(),
                 styles,
             })

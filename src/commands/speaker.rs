@@ -127,7 +127,7 @@ pub async fn create_modal(
             let first_style_id = &characters.first().unwrap().styles.first().unwrap().id;
             let transition_target_id = format!("{service}_!DISCORDTTS!_{first_style_id}");
 
-            pages.push((service.to_string(), transition_target_id.clone()));
+            pages.push((service.clone(), transition_target_id.clone()));
 
             if service == &voice_setting.service_id {
                 current_page_id = transition_target_id;
@@ -171,7 +171,7 @@ pub async fn create_modal(
         let transition_target_id =
             format!("{}_!DISCORDTTS!_{first_style_id}", voice_setting.service_id);
 
-        characters.push((character.name.to_string(), transition_target_id.to_string()));
+        characters.push((character.name.clone(), transition_target_id.clone()));
 
         if character
             .styles
@@ -189,7 +189,7 @@ pub async fn create_modal(
         let style_id = &style.id;
         let transition_target_id = format!("{}_!DISCORDTTS!_{style_id}", voice_setting.service_id);
 
-        styles.push((style.name.to_string(), transition_target_id.to_string()));
+        styles.push((style.name.clone(), transition_target_id.clone()));
     }
 
     let core = CreateInteractionResponseMessage::new()
