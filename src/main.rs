@@ -3,6 +3,7 @@
 mod commands;
 mod db;
 mod filter;
+mod google_translate;
 mod ktts;
 mod model;
 mod songbird_handler;
@@ -31,6 +32,7 @@ use serenity::{
 use songbird::SerenityInit;
 
 use crate::db::PERSISTENT_DB;
+use crate::google_translate::GoogleTranslate;
 use crate::ktts::KTTS;
 use crate::model::TtsServiceConfig;
 use crate::tts::TtsServices;
@@ -214,6 +216,11 @@ async fn main() {
                                 .unwrap(),
                         ),
                     )
+                    .await
+            }
+            TtsServiceConfig::GoogleTranslate(config) => {
+                tts_services
+                    .register(service_id, Box::new(GoogleTranslate::new(config)))
                     .await
             }
         }
