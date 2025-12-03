@@ -10,14 +10,22 @@ use crate::tts::{CharacterView, StyleView, TtsService};
 mod google_tts;
 use google_tts::get_audio_bytes;
 
+fn default_master_volume() -> f32 {
+    1.0
+}
+
 #[derive(Deserialize, Debug, Clone)]
 pub struct Setting {
     pub host: Url,
+
+    #[serde(default = "default_master_volume")]
+    pub master_volume: f32,
 }
 
 #[derive(Debug)]
 struct GoogleTranslateInner {
     host: Url,
+    master_volume: f32,
 }
 
 #[derive(Clone, Debug)]
@@ -30,6 +38,7 @@ impl GoogleTranslate {
         GoogleTranslate {
             inner: Arc::new(GoogleTranslateInner {
                 host: setting.host.clone(),
+                master_volume: setting.master_volume,
             }),
         }
     }
@@ -38,8 +47,16 @@ impl GoogleTranslate {
 #[async_trait]
 impl TtsService for GoogleTranslate {
     async fn tts(&self, style_id: &str, text: &str) -> Result<Vec<u8>> {
-        let bytes = get_audio_bytes(text, style_id, false, &self.inner.host).await?;
-        Ok(bytes.clone())
+        let bytes = get_audio_bytes(
+            text,
+            style_id,
+            false,
+            &self.inner.host,
+            self.inner.master_volume,
+        )
+        .await?;
+
+        Ok(bytes)
     }
 
     async fn styles(&self) -> Result<Vec<CharacterView>> {

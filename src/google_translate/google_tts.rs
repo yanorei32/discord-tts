@@ -62,7 +62,7 @@ fn split_long_text(text: &str, max_length: usize) -> Vec<String> {
     result
 }
 
-pub async fn get_audio_bytes(text: &str, lang: &str, slow: bool, host: &Url) -> Result<Vec<u8>> {
+pub async fn get_audio_bytes(text: &str, lang: &str, slow: bool, host: &Url, volume: f32) -> Result<Vec<u8>> {
     let parts = split_long_text(text, GOOGLE_TTS_MAX_CHARS);
     let mut combined_audio = Vec::new();
 
@@ -88,10 +88,10 @@ pub async fn get_audio_bytes(text: &str, lang: &str, slow: bool, host: &Url) -> 
         combined_audio.extend_from_slice(&resp);
     }
 
-    convert_to_wav(combined_audio)
+    convert_to_wav(combined_audio, volume)
 }
 
-fn convert_to_wav(mp3_data: Vec<u8>) -> Result<Vec<u8>> {
+fn convert_to_wav(mp3_data: Vec<u8>, gain: f32) -> Result<Vec<u8>> {
     use std::io::Cursor;
     use symphonia::core::audio::{AudioBufferRef, Signal};
     use symphonia::core::codecs::DecoderOptions;
@@ -147,12 +147,18 @@ fn convert_to_wav(mp3_data: Vec<u8>) -> Result<Vec<u8>> {
             Ok(decoded_packet) => match decoded_packet {
                 AudioBufferRef::F32(buf) => {
                     for &sample in buf.chan(0) {
+                        let sample = sample * gain * f32::from(i16::MAX);
+                        let sample = sample.min(f32::from(i16::MAX)).max(f32::from(i16::MIN));
+
                         #[allow(clippy::cast_possible_truncation)]
-                        wav_writer.write_sample((sample * f32::from(i16::MAX)) as i16)?;
+                        wav_writer.write_sample(sample as i16)?;
                     }
                 }
                 AudioBufferRef::S16(buf) => {
                     for &sample in buf.chan(0) {
+                        let sample = f32::from(sample) * gain;
+                        let sample = sample.min(f32::from(i16::MAX)).max(f32::from(i16::MIN));
+
                         wav_writer.write_sample(sample)?;
                     }
                 }
