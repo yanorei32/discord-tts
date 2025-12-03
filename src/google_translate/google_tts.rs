@@ -3,7 +3,7 @@ use reqwest::Url;
 
 const GOOGLE_TTS_MAX_CHARS: usize = 200;
 
-fn split_long_text(text: &str, max_length: usize) -> Result<Vec<String>> {
+fn split_long_text(text: &str, max_length: usize) -> Vec<String> {
     // Regex for whitespace including Zero Width No-Break Space and No-Break Space
     let space_regex = regex::Regex::new(r"[\s\u{FEFF}\u{00A0}]").unwrap();
 
@@ -59,11 +59,11 @@ fn split_long_text(text: &str, max_length: usize) -> Result<Vec<String>> {
         start = end + 1;
     }
 
-    Ok(result)
+    result
 }
 
 pub async fn get_audio_bytes(text: &str, lang: &str, slow: bool, host: &str) -> Result<Vec<u8>> {
-    let parts = split_long_text(text, GOOGLE_TTS_MAX_CHARS)?;
+    let parts = split_long_text(text, GOOGLE_TTS_MAX_CHARS);
     let mut combined_audio = Vec::new();
 
     for part in parts {
@@ -167,14 +167,14 @@ mod tests {
     #[test]
     fn test_split_short_text() {
         let text = "Hello world";
-        let parts = split_long_text(text, 200).unwrap();
+        let parts = split_long_text(text, 200);
         assert_eq!(parts, vec!["Hello world"]);
     }
 
     #[test]
     fn test_split_long_text_spaces() {
         let text = "a".repeat(150) + " " + &"b".repeat(100);
-        let parts = split_long_text(&text, 200).unwrap();
+        let parts = split_long_text(&text, 200);
         assert_eq!(parts.len(), 2);
         assert_eq!(parts[0], "a".repeat(150) + " ");
         assert_eq!(parts[1], "b".repeat(100));
@@ -183,7 +183,7 @@ mod tests {
     #[test]
     fn test_split_long_text_punctuation() {
         let text = "a".repeat(150) + "," + &"b".repeat(100);
-        let parts = split_long_text(&text, 200).unwrap();
+        let parts = split_long_text(&text, 200);
         assert_eq!(parts.len(), 2);
         assert_eq!(parts[0], "a".repeat(150) + ",");
         assert_eq!(parts[1], "b".repeat(100));
@@ -192,7 +192,7 @@ mod tests {
     #[test]
     fn test_split_japanese_text() {
         let text = "あ".repeat(150) + "。" + &"い".repeat(100);
-        let parts = split_long_text(&text, 200).unwrap();
+        let parts = split_long_text(&text, 200);
         assert_eq!(parts.len(), 2);
         assert_eq!(parts[0], "あ".repeat(150) + "。");
         assert_eq!(parts[1], "い".repeat(100));
@@ -201,7 +201,7 @@ mod tests {
     #[test]
     fn test_split_too_long_word() {
         let text = "a".repeat(300);
-        let parts = split_long_text(&text, 200).unwrap();
+        let parts = split_long_text(&text, 200);
         assert_eq!(parts.len(), 2);
         assert_eq!(parts[0], "a".repeat(200));
         assert_eq!(parts[1], "a".repeat(100));
