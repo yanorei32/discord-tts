@@ -31,6 +31,7 @@ pub enum TtsServiceConfig {
     Voicevox(crate::voicevox::Setting),
     KTTS(crate::ktts::Setting),
     WinRTTTS(crate::winrttts::Setting),
+    GoogleTranslate(crate::google_translate::Setting),
 }
 
 #[derive(Deserialize, Debug)]
