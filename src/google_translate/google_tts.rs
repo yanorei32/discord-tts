@@ -87,7 +87,77 @@ pub async fn get_audio_bytes(text: &str, lang: &str, slow: bool, host: &str) -> 
         combined_audio.extend_from_slice(&resp);
     }
 
-    Ok(combined_audio)
+    convert_to_wav(combined_audio)
+}
+
+fn convert_to_wav(mp3_data: Vec<u8>) -> Result<Vec<u8>> {
+    use std::io::Cursor;
+    use symphonia::core::audio::{AudioBufferRef, Signal};
+    use symphonia::core::io::MediaSourceStream;
+    use symphonia::core::probe::Hint;
+
+    let mss = MediaSourceStream::new(Box::new(Cursor::new(mp3_data)), Default::default());
+    let mut hint = Hint::new();
+    hint.with_extension("mp3");
+
+    let probed = symphonia::default::get_probe().format(
+        &hint,
+        mss,
+        &Default::default(),
+        &Default::default(),
+    )?;
+
+    let mut format = probed.format;
+    let track = format
+        .default_track()
+        .ok_or_else(|| anyhow::anyhow!("No track found"))?;
+    let mut decoder =
+        symphonia::default::get_codecs().make(&track.codec_params, &Default::default())?;
+
+    let track_id = track.id;
+    let spec = hound::WavSpec {
+        channels: 1,        // Google TTS is usually mono
+        sample_rate: 24000, // Google TTS is usually 24kHz
+        bits_per_sample: 16,
+        sample_format: hound::SampleFormat::Int,
+    };
+
+    let mut wav_cursor = Cursor::new(Vec::new());
+    let mut wav_writer = hound::WavWriter::new(&mut wav_cursor, spec)?;
+
+    loop {
+        let packet = match format.next_packet() {
+            Ok(packet) => packet,
+            Err(symphonia::core::errors::Error::IoError(_)) => break, // End of stream
+            Err(e) => return Err(e.into()),
+        };
+
+        if packet.track_id() != track_id {
+            continue;
+        }
+
+        match decoder.decode(&packet) {
+            Ok(decoded) => match decoded {
+                AudioBufferRef::F32(buf) => {
+                    for &sample in buf.chan(0) {
+                        wav_writer.write_sample((sample * i16::MAX as f32) as i16)?;
+                    }
+                }
+                AudioBufferRef::S16(buf) => {
+                    for &sample in buf.chan(0) {
+                        wav_writer.write_sample(sample)?;
+                    }
+                }
+                _ => anyhow::bail!("Unsupported audio format"),
+            },
+            Err(symphonia::core::errors::Error::IoError(_)) => break,
+            Err(symphonia::core::errors::Error::DecodeError(_)) => continue, // Skip decode errors
+            Err(e) => return Err(e.into()),
+        }
+    }
+
+    wav_writer.finalize()?;
+    Ok(wav_cursor.into_inner())
 }
 
 #[cfg(test)]

@@ -32,7 +32,10 @@ songbird = { version = "0.5.0", features = [
     "rustls",
     "tungstenite",
 ], default-features = false }
-symphonia = { version = "0.5.4", features = ["pcm"], default-features = false }
+symphonia = { version = "0.5.4", features = [
+    "pcm",
+    "mp3",
+], default-features = false }
 symphonia-core = { version = "0.5.4" }
 structstruck = "0.5.0"
 tap = "1.0.1"
