@@ -51,13 +51,8 @@ fn split_long_text(text: &str, max_length: usize) -> Result<Vec<String>> {
         }
 
         if !found_split {
-            let str_chunk: String = chars[start..std::cmp::min(start + max_length, chars.len())]
-                .iter()
-                .collect();
-            anyhow::bail!(
-                "The word is too long to split into a short text:\n{} ...\n\nTry to split the text by punctuation.",
-                str_chunk
-            );
+            // Force split at max_length
+            end = start + max_length - 1;
         }
 
         result.push(chars[start..=end].iter().collect());
@@ -136,7 +131,9 @@ mod tests {
     #[test]
     fn test_split_too_long_word() {
         let text = "a".repeat(300);
-        let result = split_long_text(&text, 200);
-        assert!(result.is_err());
+        let parts = split_long_text(&text, 200).unwrap();
+        assert_eq!(parts.len(), 2);
+        assert_eq!(parts[0], "a".repeat(200));
+        assert_eq!(parts[1], "a".repeat(100));
     }
 }
