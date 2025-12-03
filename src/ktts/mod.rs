@@ -54,9 +54,12 @@ fn gain(buffer: &[u8], gain: f32) -> Result<Vec<u8>> {
     let mut out_wav = WavWriter::new(&mut buffer, spec).with_context(|| "Failed to create wav")?;
 
     for sample in in_wav.samples::<i16>().map(|s| s.unwrap()) {
+        let sample = f32::from(sample) * gain;
+        let sample = sample.min(f32::from(i16::MAX)).max(f32::from(i16::MIN));
+
         #[allow(clippy::cast_possible_truncation)]
         out_wav
-            .write_sample::<i16>((f32::from(sample) * gain) as i16)
+            .write_sample::<i16>(sample as i16)
             .with_context(|| "Failed to write sample")?;
     }
 
