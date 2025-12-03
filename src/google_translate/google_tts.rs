@@ -62,25 +62,26 @@ fn split_long_text(text: &str, max_length: usize) -> Vec<String> {
     result
 }
 
-pub async fn get_audio_bytes(text: &str, lang: &str, slow: bool, host: &str) -> Result<Vec<u8>> {
+pub async fn get_audio_bytes(text: &str, lang: &str, slow: bool, host: &Url) -> Result<Vec<u8>> {
     let parts = split_long_text(text, GOOGLE_TTS_MAX_CHARS);
     let mut combined_audio = Vec::new();
 
     for part in parts {
-        let url = Url::parse_with_params(
-            host,
-            &[
-                ("ie", "UTF-8"),
-                ("q", &part),
-                ("tl", lang),
-                ("total", "1"),
-                ("idx", "0"),
-                ("textlen", &part.len().to_string()),
-                ("tk", &"0"),
-                ("client", "tw-ob"),
-                ("ttsspeed", if slow { "0" } else { "1" }),
-            ],
-        )?;
+        let mut url = host.clone();
+        url.path_segments_mut()
+            .map_err(|()| anyhow::anyhow!("Cannot be base"))?
+            .push("translate_tts");
+
+        url.query_pairs_mut()
+            .append_pair("ie", "UTF-8")
+            .append_pair("q", &part)
+            .append_pair("tl", lang)
+            .append_pair("total", "1")
+            .append_pair("idx", "0")
+            .append_pair("textlen", &part.len().to_string())
+            .append_pair("tk", "0")
+            .append_pair("client", "tw-ob")
+            .append_pair("ttsspeed", if slow { "0" } else { "1" });
 
         let resp = reqwest::get(url).await?.error_for_status()?.bytes().await?;
 
@@ -93,18 +94,24 @@ pub async fn get_audio_bytes(text: &str, lang: &str, slow: bool, host: &str) -> 
 fn convert_to_wav(mp3_data: Vec<u8>) -> Result<Vec<u8>> {
     use std::io::Cursor;
     use symphonia::core::audio::{AudioBufferRef, Signal};
-    use symphonia::core::io::MediaSourceStream;
+    use symphonia::core::codecs::DecoderOptions;
+    use symphonia::core::formats::FormatOptions;
+    use symphonia::core::io::{MediaSourceStream, MediaSourceStreamOptions};
+    use symphonia::core::meta::MetadataOptions;
     use symphonia::core::probe::Hint;
 
-    let mss = MediaSourceStream::new(Box::new(Cursor::new(mp3_data)), Default::default());
+    let mss = MediaSourceStream::new(
+        Box::new(Cursor::new(mp3_data)),
+        MediaSourceStreamOptions::default(),
+    );
     let mut hint = Hint::new();
     hint.with_extension("mp3");
 
     let probed = symphonia::default::get_probe().format(
         &hint,
         mss,
-        &Default::default(),
-        &Default::default(),
+        &FormatOptions::default(),
+        &MetadataOptions::default(),
     )?;
 
     let mut format = probed.format;
@@ -112,7 +119,7 @@ fn convert_to_wav(mp3_data: Vec<u8>) -> Result<Vec<u8>> {
         .default_track()
         .ok_or_else(|| anyhow::anyhow!("No track found"))?;
     let mut decoder =
-        symphonia::default::get_codecs().make(&track.codec_params, &Default::default())?;
+        symphonia::default::get_codecs().make(&track.codec_params, &DecoderOptions::default())?;
 
     let track_id = track.id;
     let spec = hound::WavSpec {
@@ -137,10 +144,11 @@ fn convert_to_wav(mp3_data: Vec<u8>) -> Result<Vec<u8>> {
         }
 
         match decoder.decode(&packet) {
-            Ok(decoded) => match decoded {
+            Ok(decoded_packet) => match decoded_packet {
                 AudioBufferRef::F32(buf) => {
                     for &sample in buf.chan(0) {
-                        wav_writer.write_sample((sample * i16::MAX as f32) as i16)?;
+                        #[allow(clippy::cast_possible_truncation)]
+                        wav_writer.write_sample((sample * f32::from(i16::MAX)) as i16)?;
                     }
                 }
                 AudioBufferRef::S16(buf) => {
@@ -151,7 +159,7 @@ fn convert_to_wav(mp3_data: Vec<u8>) -> Result<Vec<u8>> {
                 _ => anyhow::bail!("Unsupported audio format"),
             },
             Err(symphonia::core::errors::Error::IoError(_)) => break,
-            Err(symphonia::core::errors::Error::DecodeError(_)) => continue, // Skip decode errors
+            Err(symphonia::core::errors::Error::DecodeError(_)) => {} // Skip decode errors
             Err(e) => return Err(e.into()),
         }
     }

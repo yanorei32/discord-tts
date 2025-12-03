@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use async_trait::async_trait;
+use reqwest::Url;
 use serde::Deserialize;
 
 use crate::tts::{CharacterView, StyleView, TtsService};
@@ -11,12 +12,12 @@ use google_tts::get_audio_bytes;
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Setting {
-    pub host: String,
+    pub host: Url,
 }
 
 #[derive(Debug)]
 struct GoogleTranslateInner {
-    host: String,
+    host: Url,
 }
 
 #[derive(Clone, Debug)]
@@ -38,7 +39,7 @@ impl GoogleTranslate {
 impl TtsService for GoogleTranslate {
     async fn tts(&self, style_id: &str, text: &str) -> Result<Vec<u8>> {
         let bytes = get_audio_bytes(text, style_id, false, &self.inner.host).await?;
-        Ok(bytes.to_vec())
+        Ok(bytes.clone())
     }
 
     async fn styles(&self) -> Result<Vec<CharacterView>> {
