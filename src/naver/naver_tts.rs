@@ -77,10 +77,7 @@ pub async fn get_audio_bytes(
         return create_empty_wav();
     }
 
-    match convert_to_wav(resp.to_vec(), volume) {
-        Ok(wav) => Ok(wav),
-        Err(_) => create_empty_wav(),
-    }
+    convert_to_wav(resp.to_vec(), volume)
 }
 
 fn convert_to_wav(mp3_data: Vec<u8>, gain: f32) -> Result<Vec<u8>> {
