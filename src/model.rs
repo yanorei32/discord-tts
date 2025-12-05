@@ -33,6 +33,7 @@ pub enum TtsServiceConfig {
     WinRTTTS(crate::winrttts::Setting),
     GoogleTranslate(crate::google_translate::Setting),
     Naver(crate::naver::Setting),
+    BingSpeech(crate::bing_speech::Setting),
 }
 
 #[derive(Deserialize, Debug)]

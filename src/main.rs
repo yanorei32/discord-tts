@@ -13,6 +13,7 @@ mod voiceroid;
 mod voicevox;
 mod wavsource;
 mod winrttts;
+mod bing_speech;
 
 use std::io::Cursor;
 
@@ -41,6 +42,7 @@ use crate::tts::TtsServices;
 use crate::voiceroid::Voiceroid;
 use crate::voicevox::Voicevox;
 use crate::winrttts::WinRTTTS;
+use crate::bing_speech::BingSpeech;
 
 struct Bot {
     tts_services: TtsServices,
@@ -229,6 +231,11 @@ async fn main() {
             TtsServiceConfig::Naver(config) => {
                 tts_services
                     .register(service_id, Box::new(Naver::new(config)))
+                    .await
+            }
+            TtsServiceConfig::BingSpeech(config) => {
+                tts_services
+                    .register(service_id, Box::new(BingSpeech::new(config)))
                     .await
             }
         }
