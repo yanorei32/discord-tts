@@ -68,7 +68,10 @@ const LANGUAGES: &[(&str, &str)] = &[
 #[async_trait]
 impl TtsService for BingSpeech {
     async fn tts(&self, style_id: &str, text: &str) -> Result<Vec<u8>> {
-        get_audio_bytes(text, style_id, &self.inner.host, self.inner.master_volume).await
+        let (locale, voice) = style_id
+            .split_once('/')
+            .ok_or_else(|| anyhow::anyhow!("Invalid style_id format: {style_id}"))?;
+        get_audio_bytes(text, voice, locale, &self.inner.host, self.inner.master_volume).await
     }
 
     async fn styles(&self) -> Result<Vec<CharacterView>> {
@@ -82,7 +85,7 @@ impl TtsService for BingSpeech {
                 .filter(|v| &v.locale == locale)
                 .map(|voice| StyleView {
                     name: parse_friendly_name(&voice.friendly_name),
-                    id: voice.short_name.clone(),
+                    id: format!("{}/{}", voice.locale, voice.short_name),
                     icon: vec![],
                 })
                 .collect();

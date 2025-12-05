@@ -3,6 +3,7 @@ use futures::{SinkExt, StreamExt};
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use ssml::Serialize as SsmlSerialize;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
 use uuid::Uuid;
@@ -98,12 +99,25 @@ fn create_empty_wav() -> Result<Vec<u8>> {
     Ok(wav_cursor.into_inner())
 }
 
-pub async fn get_audio_bytes(text: &str, voice: &str, host: &str, volume: f32) -> Result<Vec<u8>> {
+pub async fn get_audio_bytes(
+    text: &str,
+    voice: &str,
+    locale: &str,
+    host: &str,
+    volume: f32,
+) -> Result<Vec<u8>> {
     let parts = crate::tts::split_long_text(text, BING_SPEECH_MAX_CHARS);
 
     let futures: Vec<_> = parts
         .into_iter()
-        .map(|part| fetch_audio_part(part, voice.to_string(), host.to_string()))
+        .map(|part| {
+            fetch_audio_part(
+                part,
+                voice.to_string(),
+                locale.to_string(),
+                host.to_string(),
+            )
+        })
         .collect();
 
     let results = futures::future::join_all(futures).await;
@@ -122,7 +136,12 @@ pub async fn get_audio_bytes(text: &str, voice: &str, host: &str, volume: f32) -
     crate::tts::convert_mp3_to_wav(combined_audio, volume)
 }
 
-async fn fetch_audio_part(part: String, voice: String, host: String) -> Result<Vec<u8>> {
+async fn fetch_audio_part(
+    part: String,
+    voice: String,
+    locale: String,
+    host: String,
+) -> Result<Vec<u8>> {
     let url = Url::parse(&format!(
         "wss://{}/consumer/speech/synthesize/readaloud/edge/v1?TrustedClientToken={}&Sec-MS-GEC={}&Sec-MS-GEC-Version={}",
         host,
@@ -134,24 +153,25 @@ async fn fetch_audio_part(part: String, voice: String, host: String) -> Result<V
     let (mut ws_stream, _) = connect_async(url).await?;
 
     ws_stream
-        .send(Message::Text(format!(
+        .send(Message::Text(
             "Content-Type:application/json; charset=utf-8\r\n\
             Path:speech.config\r\n\r\n\
-            {{\"context\":{{\"synthesis\":{{\"audio\":{{\"outputFormat\":\"audio-24khz-48kbitrate-mono-mp3\"}}}}}}}}"
-        )))
+            {\"context\":{\"synthesis\":{\"audio\":{\"outputFormat\":\"audio-24khz-48kbitrate-mono-mp3\"}}}}"
+            .to_string(),
+        ))
         .await?;
+
+    let doc = ssml::speak(Some(&locale), [ssml::voice(&voice, [part])]);
+    let ssml_string = doc.serialize_to_string(&ssml::SerializeOptions::default())?;
 
     ws_stream
         .send(Message::Text(format!(
             "X-RequestId:{}\r\n\
             Content-Type:application/ssml+xml\r\n\
             Path:ssml\r\n\r\n\
-            <speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'>\
-                <voice name='{}'>{}</voice>\
-            </speak>",
+            {}",
             Uuid::new_v4().simple(),
-            voice,
-            part
+            ssml_string
         )))
         .await?;
 
