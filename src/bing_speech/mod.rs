@@ -15,7 +15,7 @@ fn default_master_volume() -> f32 {
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Setting {
-    pub host: String,
+
 
     #[serde(default = "default_master_volume")]
     pub master_volume: f32,
@@ -23,7 +23,7 @@ pub struct Setting {
 
 #[derive(Debug)]
 struct BingSpeechInner {
-    host: String,
+
     master_volume: f32,
 }
 
@@ -36,7 +36,7 @@ impl BingSpeech {
     pub fn new(setting: &Setting) -> Self {
         BingSpeech {
             inner: Arc::new(BingSpeechInner {
-                host: setting.host.clone(),
+
                 master_volume: setting.master_volume,
             }),
         }
@@ -71,11 +71,11 @@ impl TtsService for BingSpeech {
         let (locale, voice) = style_id
             .split_once('/')
             .ok_or_else(|| anyhow::anyhow!("Invalid style_id format: {style_id}"))?;
-        get_audio_bytes(text, voice, locale, &self.inner.host, self.inner.master_volume).await
+        get_audio_bytes(text, voice, locale, self.inner.master_volume).await
     }
 
     async fn styles(&self) -> Result<Vec<CharacterView>> {
-        let voices = list_voices(&self.inner.host).await?;
+        let voices = list_voices().await?;
 
         let mut characters = Vec::new();
 

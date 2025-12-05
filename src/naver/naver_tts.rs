@@ -96,7 +96,6 @@ pub async fn get_audio_bytes(
     _lang: &str,
     speaker: &str,
     speed: i32,
-    host: &Url,
     volume: f32,
 ) -> Result<Vec<u8>> {
     use reqwest::header::{HeaderMap, HeaderValue};
@@ -105,11 +104,7 @@ pub async fn get_audio_bytes(
     let mut combined_audio = Vec::new();
 
     for part in parts {
-        let mut url = host.clone();
-        url.path_segments_mut()
-            .map_err(|()| anyhow::anyhow!("Cannot be base"))?
-            .push("api")
-            .push("nvoice");
+        let mut url = Url::parse("https://dict.naver.com/api/nvoice")?;
 
         url.query_pairs_mut()
             .append_pair("service", "dictionary")
@@ -119,7 +114,7 @@ pub async fn get_audio_bytes(
             .append_pair("speed", &speed.to_string());
 
         let mut headers = HeaderMap::new();
-        headers.insert("Referer", HeaderValue::from_str(host.as_str())?);
+        headers.insert("Referer", HeaderValue::from_static("https://dict.naver.com/"));
 
         let client = reqwest::Client::builder()
             .default_headers(headers)
