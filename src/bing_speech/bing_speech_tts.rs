@@ -150,7 +150,7 @@ async fn fetch_audio_part(
         SEC_MS_GEC_VERSION
     ))?;
 
-    let (mut ws_stream, _) = connect_async(url).await?;
+    let (mut ws_stream, _) = connect_async(url.to_string()).await?;
 
     ws_stream
         .send(Message::Text(
