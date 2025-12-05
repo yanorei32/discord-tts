@@ -12,6 +12,7 @@ mod voiceroid;
 mod voicevox;
 mod wavsource;
 mod winrttts;
+mod naver;
 
 use std::io::Cursor;
 
@@ -39,6 +40,7 @@ use crate::tts::TtsServices;
 use crate::voiceroid::Voiceroid;
 use crate::voicevox::Voicevox;
 use crate::winrttts::WinRTTTS;
+use crate::naver::Naver;
 
 struct Bot {
     tts_services: TtsServices,
@@ -221,6 +223,11 @@ async fn main() {
             TtsServiceConfig::GoogleTranslate(config) => {
                 tts_services
                     .register(service_id, Box::new(GoogleTranslate::new(config)))
+                    .await
+            }
+            TtsServiceConfig::Naver(config) => {
+                tts_services
+                    .register(service_id, Box::new(Naver::new(config)))
                     .await
             }
         }
