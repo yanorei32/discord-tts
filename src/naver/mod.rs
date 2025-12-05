@@ -8,8 +8,8 @@ use serde::Deserialize;
 use crate::tts::{CharacterView, StyleView, TtsService};
 
 mod naver_tts;
-use naver_tts::get_audio_bytes;
 use naver_tts::VOICES;
+use naver_tts::get_audio_bytes;
 
 fn default_master_volume() -> f32 {
     1.0
@@ -18,8 +18,6 @@ fn default_master_volume() -> f32 {
 fn default_speed() -> i32 {
     0
 }
-
-
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Setting {
@@ -62,7 +60,7 @@ impl TtsService for Naver {
         let voice = VOICES
             .iter()
             .find(|v| v.speaker == style_id)
-            .ok_or_else(|| anyhow::anyhow!("Unsupported style: {}", style_id))?;
+            .ok_or_else(|| anyhow::anyhow!("Unsupported style: {style_id}"))?;
 
         let bytes = get_audio_bytes(
             text,
@@ -90,7 +88,7 @@ impl TtsService for Naver {
 
         for (lang_id, lang_name) in languages {
             let mut styles = Vec::new();
-            
+
             for voice in VOICES.iter().filter(|v| v.lang == lang_id) {
                 styles.push(StyleView {
                     name: voice.name.to_string(),

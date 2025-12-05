@@ -1,7 +1,7 @@
 use serenity::{
     builder::CreateCommand,
     client::Context,
-    model::{application::CommandInteraction, id::ChannelId, prelude::Mentionable, Permissions},
+    model::{Permissions, application::CommandInteraction, id::ChannelId, prelude::Mentionable},
 };
 use songbird::CoreEvent;
 

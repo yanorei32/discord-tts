@@ -6,8 +6,8 @@ use async_trait::async_trait;
 use futures::future;
 use json::JsonValue;
 use reqwest::{
-    header::{HeaderMap, HeaderName, CONTENT_TYPE},
     Url,
+    header::{CONTENT_TYPE, HeaderMap, HeaderName},
 };
 use serde::Deserialize;
 use tap::Tap;
@@ -73,9 +73,7 @@ impl TtsService for Voicevox {
 
         let url = self.inner.host.clone().tap_mut(|u| {
             u.path_segments_mut().unwrap().push("synthesis");
-            u.query_pairs_mut()
-                .clear()
-                .append_pair("speaker", style_id);
+            u.query_pairs_mut().clear().append_pair("speaker", style_id);
         });
 
         let query_text = match json::parse(&query_text).context("Faield to parse query")? {

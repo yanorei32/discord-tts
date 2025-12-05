@@ -6,13 +6,13 @@ mod filter;
 mod google_translate;
 mod ktts;
 mod model;
+mod naver;
 mod songbird_handler;
 mod tts;
 mod voiceroid;
 mod voicevox;
 mod wavsource;
 mod winrttts;
-mod naver;
 
 use std::io::Cursor;
 
@@ -36,11 +36,11 @@ use crate::db::PERSISTENT_DB;
 use crate::google_translate::GoogleTranslate;
 use crate::ktts::KTTS;
 use crate::model::TtsServiceConfig;
+use crate::naver::Naver;
 use crate::tts::TtsServices;
 use crate::voiceroid::Voiceroid;
 use crate::voicevox::Voicevox;
 use crate::winrttts::WinRTTTS;
-use crate::naver::Naver;
 
 struct Bot {
     tts_services: TtsServices,

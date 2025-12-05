@@ -9,7 +9,7 @@ use serenity::{
     model::application::CommandInteraction,
 };
 
-use crate::{db::PERSISTENT_DB, model::TtsStyle, tts::TtsServices, DEFAULT_TTS_STYLE};
+use crate::{DEFAULT_TTS_STYLE, db::PERSISTENT_DB, model::TtsStyle, tts::TtsServices};
 
 const PAGE_SIZE: usize = 25;
 
@@ -154,10 +154,10 @@ pub async fn create_modal(
                     .iter()
                     .flat_map(|character| character.styles.iter())
                     .any(|style| style.id == voice_setting.style_id)
-                {
-                    current_page_id = transition_target_id;
-                    current_character_items = page_characters.to_vec();
-                }
+            {
+                current_page_id = transition_target_id;
+                current_character_items = page_characters.to_vec();
+            }
         }
     }
 
@@ -276,7 +276,7 @@ pub async fn create_modal(
             .disabled(style_unselectable),
         ),
         CreateActionRow::Buttons(vec![
-            CreateButton::new(format!("apply_{apply_target_id}")).label("Apply")
+            CreateButton::new(format!("apply_{apply_target_id}")).label("Apply"),
         ]),
     ])
 }

@@ -1,5 +1,6 @@
 use anyhow::Result;
 use reqwest::Url;
+use tracing::subscriber::NoSubscriber;
 
 #[derive(Debug, Clone)]
 pub struct NaverVoice {
@@ -11,16 +12,66 @@ pub struct NaverVoice {
 }
 
 pub const VOICES: &[NaverVoice] = &[
-    NaverVoice { name: "Danna", speaker: "danna", lang: "en", gender: "f" },
-    NaverVoice { name: "Matt", speaker: "matt", lang: "en", gender: "m" },
-    NaverVoice { name: "Carmen", speaker: "carmen", lang: "es", gender: "f" },
-    NaverVoice { name: "Jose", speaker: "jose", lang: "es", gender: "m" },
-    NaverVoice { name: "Yuri", speaker: "yuri", lang: "ja", gender: "f" },
-    NaverVoice { name: "Shinji", speaker: "shinji", lang: "ja", gender: "m" },
-    NaverVoice { name: "Kyuri", speaker: "kyuri", lang: "ko", gender: "f" },
-    NaverVoice { name: "Jinho", speaker: "jinho", lang: "ko", gender: "m" },
-    NaverVoice { name: "Meimei", speaker: "meimei", lang: "zh", gender: "f" },
-    NaverVoice { name: "Liangliang", speaker: "liangliang", lang: "zh", gender: "m" },
+    NaverVoice {
+        name: "Danna",
+        speaker: "danna",
+        lang: "en",
+        gender: "f",
+    },
+    NaverVoice {
+        name: "Matt",
+        speaker: "matt",
+        lang: "en",
+        gender: "m",
+    },
+    NaverVoice {
+        name: "Carmen",
+        speaker: "carmen",
+        lang: "es",
+        gender: "f",
+    },
+    NaverVoice {
+        name: "Jose",
+        speaker: "jose",
+        lang: "es",
+        gender: "m",
+    },
+    NaverVoice {
+        name: "Yuri",
+        speaker: "yuri",
+        lang: "ja",
+        gender: "f",
+    },
+    NaverVoice {
+        name: "Shinji",
+        speaker: "shinji",
+        lang: "ja",
+        gender: "m",
+    },
+    NaverVoice {
+        name: "Kyuri",
+        speaker: "kyuri",
+        lang: "ko",
+        gender: "f",
+    },
+    NaverVoice {
+        name: "Jinho",
+        speaker: "jinho",
+        lang: "ko",
+        gender: "m",
+    },
+    NaverVoice {
+        name: "Meimei",
+        speaker: "meimei",
+        lang: "zh",
+        gender: "f",
+    },
+    NaverVoice {
+        name: "Liangliang",
+        speaker: "liangliang",
+        lang: "zh",
+        gender: "m",
+    },
 ];
 
 fn create_empty_wav() -> Result<Vec<u8>> {
@@ -68,16 +119,19 @@ pub async fn get_audio_bytes(
             .append_pair("speed", &speed.to_string());
 
         let mut headers = HeaderMap::new();
-        headers.insert(
-            "Referer",
-            HeaderValue::from_str(host.as_str())?,
-        );
+        headers.insert("Referer", HeaderValue::from_str(host.as_str())?);
 
         let client = reqwest::Client::builder()
             .default_headers(headers)
             .build()?;
 
-        let resp = client.get(url).send().await?.error_for_status()?.bytes().await?;
+        let resp = client
+            .get(url)
+            .send()
+            .await?
+            .error_for_status()?
+            .bytes()
+            .await?;
 
         if resp.is_empty() {
             continue;
@@ -89,7 +143,6 @@ pub async fn get_audio_bytes(
         return create_empty_wav();
     }
 
-    use tracing::subscriber::NoSubscriber;
     tracing::subscriber::with_default(NoSubscriber::new(), || {
         crate::tts::convert_mp3_to_wav(combined_audio, volume)
     })

@@ -3,7 +3,13 @@ use reqwest::Url;
 
 const GOOGLE_TTS_MAX_CHARS: usize = 200;
 
-pub async fn get_audio_bytes(text: &str, lang: &str, slow: bool, host: &Url, volume: f32) -> Result<Vec<u8>> {
+pub async fn get_audio_bytes(
+    text: &str,
+    lang: &str,
+    slow: bool,
+    host: &Url,
+    volume: f32,
+) -> Result<Vec<u8>> {
     let parts = crate::tts::split_long_text(text, GOOGLE_TTS_MAX_CHARS);
     let mut combined_audio = Vec::new();
 

@@ -127,7 +127,9 @@ impl TtsService for KTTS {
             u.path_segments_mut().unwrap().push("api").push("tts");
         });
 
-        let text = if let Some(g2p_url) = &self.inner.g2p_url && style_id == "G2P"{
+        let text = if let Some(g2p_url) = &self.inner.g2p_url
+            && style_id == "G2P"
+        {
             let api_g2p = g2p_url.clone().tap_mut(|u| {
                 u.path_segments_mut().unwrap().push("api").push("g2p");
             });
