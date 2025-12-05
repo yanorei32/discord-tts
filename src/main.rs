@@ -144,6 +144,7 @@ impl EventHandler for Bot {
 static DEFAULT_TTS_STYLE: OnceCell<model::TtsStyle> = OnceCell::new();
 static CLI_OPTIONS: OnceCell<model::Cli> = OnceCell::new();
 
+#[allow(clippy::too_many_lines)]
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::init();
