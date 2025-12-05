@@ -588,7 +588,7 @@ dependencies = [
  "symphonia-core",
  "tap",
  "tokio",
- "tokio-tungstenite 0.21.0",
+ "tokio-tungstenite 0.26.2",
  "toml",
  "tracing",
  "tracing-subscriber",
@@ -604,12 +604,6 @@ dependencies = [
  "pnet_macros",
  "pnet_macros_support",
 ]
-
-[[package]]
-name = "dyn-clone"
-version = "1.0.20"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d0881ea181b1df73ff77ffaaf9c7544ecc11e82fba9b5f27b262a3c73a332555"
 
 [[package]]
 name = "either"
@@ -2419,12 +2413,9 @@ dependencies = [
 
 [[package]]
 name = "ssml"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "de431cf5cc907fb9a558407a13b5e70cda18ee00532c8bf3e1fb6dd7c25fff6c"
-dependencies = [
- "dyn-clone",
-]
+checksum = "7c763fb3c520986754dff6ae17e02aece206fe338bed1582894f1f1108ecdee2"
 
 [[package]]
 name = "stable-vec"

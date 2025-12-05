@@ -157,11 +157,18 @@ async fn fetch_audio_part(
             "Content-Type:application/json; charset=utf-8\r\n\
             Path:speech.config\r\n\r\n\
             {\"context\":{\"synthesis\":{\"audio\":{\"outputFormat\":\"audio-24khz-48kbitrate-mono-mp3\"}}}}"
-            .to_string(),
+            .to_string().into(),
         ))
         .await?;
 
-    let doc = ssml::speak(Some(&locale), [ssml::voice(&voice, [part])]);
+    let locale_regex = regex::Regex::new(r"^[a-z]{2}-[A-Z]{2}$").unwrap();
+    let locale_option = if locale_regex.is_match(&locale) {
+        Some(locale.as_str())
+    } else {
+        None
+    };
+
+    let doc = ssml::speak(locale_option, [ssml::voice(&voice, [part])]);
     let ssml_string = doc.serialize_to_string(&ssml::SerializeOptions::default())?;
 
     ws_stream
@@ -172,7 +179,7 @@ async fn fetch_audio_part(
             {}",
             Uuid::new_v4().simple(),
             ssml_string
-        )))
+        ).into()))
         .await?;
 
     let mut audio_data = Vec::new();
