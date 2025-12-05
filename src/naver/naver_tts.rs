@@ -89,5 +89,8 @@ pub async fn get_audio_bytes(
         return create_empty_wav();
     }
 
-    crate::tts::convert_mp3_to_wav(combined_audio, volume)
+    use tracing::subscriber::NoSubscriber;
+    tracing::subscriber::with_default(NoSubscriber::new(), || {
+        crate::tts::convert_mp3_to_wav(combined_audio, volume)
+    })
 }
