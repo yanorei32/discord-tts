@@ -40,19 +40,18 @@ fn generate_sec_ms_gec() -> String {
     hex::encode(hasher.finalize()).to_uppercase()
 }
 
-pub async fn list_voices(host: &str) -> Result<Vec<Voice>> {
+pub async fn list_voices() -> Result<Vec<Voice>> {
     use reqwest::header::{HeaderMap, HeaderValue};
 
     let url = format!(
-        "https://{}/consumer/speech/synthesize/readaloud/voices/list?trustedclienttoken={}&Sec-MS-GEC={}&Sec-MS-GEC-Version={}",
-        host,
+        "https://speech.platform.bing.com/consumer/speech/synthesize/readaloud/voices/list?trustedclienttoken={}&Sec-MS-GEC={}&Sec-MS-GEC-Version={}",
         TRUSTED_CLIENT_TOKEN,
         generate_sec_ms_gec(),
         SEC_MS_GEC_VERSION
     );
 
     let mut headers = HeaderMap::new();
-    headers.insert("Authority", HeaderValue::from_str(host)?);
+    headers.insert("Authority", HeaderValue::from_static("speech.platform.bing.com"));
     headers.insert(
         "Sec-CH-UA",
         HeaderValue::from_static(
@@ -103,7 +102,6 @@ pub async fn get_audio_bytes(
     text: &str,
     voice: &str,
     locale: &str,
-    host: &str,
     volume: f32,
 ) -> Result<Vec<u8>> {
     let parts = crate::tts::split_long_text(text, BING_SPEECH_MAX_CHARS);
@@ -115,7 +113,6 @@ pub async fn get_audio_bytes(
                 part,
                 voice.to_string(),
                 locale.to_string(),
-                host.to_string(),
             )
         })
         .collect();
@@ -140,11 +137,9 @@ async fn fetch_audio_part(
     part: String,
     voice: String,
     locale: String,
-    host: String,
 ) -> Result<Vec<u8>> {
     let url = Url::parse(&format!(
-        "wss://{}/consumer/speech/synthesize/readaloud/edge/v1?TrustedClientToken={}&Sec-MS-GEC={}&Sec-MS-GEC-Version={}",
-        host,
+        "wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1?TrustedClientToken={}&Sec-MS-GEC={}&Sec-MS-GEC-Version={}",
         TRUSTED_CLIENT_TOKEN,
         generate_sec_ms_gec(),
         SEC_MS_GEC_VERSION

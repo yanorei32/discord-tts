@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use async_trait::async_trait;
-use reqwest::Url;
+
 use serde::Deserialize;
 
 use crate::tts::{CharacterView, StyleView, TtsService};
@@ -24,7 +24,7 @@ pub struct Setting {
     #[serde(default = "default_master_volume")]
     pub master_volume: f32,
 
-    pub host: Url,
+
 
     #[serde(default = "default_speed")]
     pub speed: i32,
@@ -33,7 +33,7 @@ pub struct Setting {
 #[derive(Debug)]
 struct NaverInner {
     master_volume: f32,
-    host: Url,
+
     speed: i32,
 }
 
@@ -47,7 +47,7 @@ impl Naver {
         Naver {
             inner: Arc::new(NaverInner {
                 master_volume: setting.master_volume,
-                host: setting.host.clone(),
+
                 speed: setting.speed,
             }),
         }
@@ -67,7 +67,6 @@ impl TtsService for Naver {
             voice.lang,
             voice.speaker,
             self.inner.speed,
-            &self.inner.host,
             self.inner.master_volume,
         )
         .await?;
