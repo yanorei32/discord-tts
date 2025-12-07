@@ -1,6 +1,7 @@
 # Discord TTS
 
 ## Backends
+⚠ Non-official API. No warranty and not supported. Use at your own risk!
 
 - VOICEVOX / AivisSpeech
   - Native VOICEVOX API support
@@ -10,9 +11,11 @@
   - works with https://github.com/yanorei32/libktts-server
 - WinRT
   - works with https://github.com/yanorei32/winrt-tts-server
-- Google Translate
+- ⚠ Google Translate
   - based on https://github.com/zlargon/google-tts by [@sim1222](https://github.com/sim1222)
-- NAVER CLOVA
+- ⚠ NAVER CLOVA
   - based on https://github.com/scottgigante/NaverTTS by [@REO2248](https://github.com/REO2248)
-- Bing Speech
+- ⚠ Bing Speech
   - based on https://github.com/rany2/edge-tts by [@REO2248](https://github.com/REO2248)
+- ⚠ CoeFont Try
+  - created by [@REO2248](https://github.com/REO2248)
