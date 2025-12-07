@@ -34,6 +34,7 @@ pub enum TtsServiceConfig {
     GoogleTranslate(crate::google_translate::Setting),
     Naver(crate::naver::Setting),
     BingSpeech(crate::bing_speech::Setting),
+    CoefontTry(crate::coefont_try::Setting),
 }
 
 #[derive(Deserialize, Debug)]
