@@ -14,6 +14,7 @@ mod voicevox;
 mod wavsource;
 mod winrttts;
 mod bing_speech;
+mod coefont_try;
 
 use std::io::Cursor;
 
@@ -43,6 +44,7 @@ use crate::voiceroid::Voiceroid;
 use crate::voicevox::Voicevox;
 use crate::winrttts::WinRTTTS;
 use crate::bing_speech::BingSpeech;
+use crate::coefont_try::CoefontTry;
 
 struct Bot {
     tts_services: TtsServices,
@@ -236,6 +238,11 @@ async fn main() {
             TtsServiceConfig::BingSpeech(config) => {
                 tts_services
                     .register(service_id, Box::new(BingSpeech::new(config)))
+                    .await
+            }
+            TtsServiceConfig::CoefontTry(config) => {
+                tts_services
+                    .register(service_id, Box::new(CoefontTry::new(config)))
                     .await
             }
         }
