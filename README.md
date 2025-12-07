@@ -1,8 +1,6 @@
 # Discord TTS
 
 ## Backends
-⚠ Non-official API. No warranty and not supported. Use at your own risk!
-
 - VOICEVOX / AivisSpeech
   - Native VOICEVOX API support
 - VOICEROID
@@ -19,3 +17,5 @@
   - based on https://github.com/rany2/edge-tts by [@REO2248](https://github.com/REO2248)
 - ⚠ CoeFont Try
   - created by [@REO2248](https://github.com/REO2248)
+
+⚠ Non-official API. No warranty and not supported. Use at your own risk!
