@@ -8,9 +8,10 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
 use uuid::Uuid;
 
+#[allow(clippy::unreadable_literal)]
+const WIN_EPOCH: u64 = 11644473600;
 const TRUSTED_CLIENT_TOKEN: &str = "6A5AA1D4EAFF4E9FB37E23D68491D6F4";
 const SEC_MS_GEC_VERSION: &str = "1-130.0.2849.68";
-const WIN_EPOCH: u64 = 11644473600;
 const BING_SPEECH_MAX_CHARS: usize = 1000;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -32,9 +33,9 @@ fn generate_sec_ms_gec() -> String {
     let mut ticks = since_the_epoch.as_secs();
     ticks += WIN_EPOCH;
     ticks -= ticks % 300;
-    let ticks_100ns = ticks as u128 * 10_000_000;
+    let ticks_100ns = u128::from(ticks) * 10_000_000;
 
-    let str_to_hash = format!("{}{}", ticks_100ns, TRUSTED_CLIENT_TOKEN);
+    let str_to_hash = format!("{ticks_100ns}{TRUSTED_CLIENT_TOKEN}");
     let mut hasher = Sha256::new();
     hasher.update(str_to_hash);
     hex::encode(hasher.finalize()).to_uppercase()
@@ -120,10 +121,8 @@ pub async fn get_audio_bytes(
     let results = futures::future::join_all(futures).await;
 
     let mut combined_audio = Vec::new();
-    for result in results {
-        if let Ok(audio) = result {
-            combined_audio.extend(audio);
-        }
+    for audio in results.into_iter().flatten() {
+        combined_audio.extend(audio);
     }
 
     if combined_audio.is_empty() {

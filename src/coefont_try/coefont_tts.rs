@@ -1,3 +1,5 @@
+use std::io::Cursor;
+
 use anyhow::{Context, Result};
 use futures::future::join_all;
 use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE, ORIGIN, REFERER, USER_AGENT};
@@ -148,14 +150,14 @@ fn apply_volume_to_wav(wav_data: Vec<u8>, volume: f32) -> Result<Vec<u8>> {
         return Ok(wav_data);
     }
 
-    use std::io::Cursor;
     let mut reader = hound::WavReader::new(Cursor::new(&wav_data))?;
     let spec = reader.spec();
 
+    #[allow(clippy::cast_possible_truncation)]
     let samples: Vec<i16> = reader
         .samples::<i16>()
         .map(|s| s.unwrap_or(0))
-        .map(|s| (s as f32 * volume).clamp(i16::MIN as f32, i16::MAX as f32) as i16)
+        .map(|s| (f32::from(s) * volume).clamp(f32::from(i16::MIN), f32::from(i16::MAX)) as i16)
         .collect();
 
     let mut wav_cursor = Cursor::new(Vec::new());
@@ -168,7 +170,7 @@ fn apply_volume_to_wav(wav_data: Vec<u8>, volume: f32) -> Result<Vec<u8>> {
 }
 
 async fn fetch_audio_part(text: String, voice_id: String) -> Result<Vec<u8>> {
-    let url = format!("https://backend.coefont.cloud/coefonts/{}/try", voice_id);
+    let url = format!("https://backend.coefont.cloud/coefonts/{voice_id}/try");
 
     let payload = TtsPayload {
         text,
@@ -193,7 +195,7 @@ async fn fetch_audio_part(text: String, voice_id: String) -> Result<Vec<u8>> {
     if !response.status().is_success() {
         let status = response.status();
         let error_text = response.text().await.unwrap_or_default();
-        anyhow::bail!("API request failed with status {}: {}", status, error_text);
+        anyhow::bail!("API request failed with status {status}: {error_text}");
     }
 
     let tts_response: TtsResponse = response
