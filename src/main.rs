@@ -1,5 +1,7 @@
 #![warn(clippy::pedantic)]
 
+mod bing_speech;
+mod coefont_try;
 mod commands;
 mod db;
 mod filter;
@@ -13,8 +15,6 @@ mod voiceroid;
 mod voicevox;
 mod wavsource;
 mod winrttts;
-mod bing_speech;
-mod coefont_try;
 
 use std::io::Cursor;
 
@@ -35,6 +35,8 @@ use serenity::{
 };
 use songbird::SerenityInit;
 
+use crate::bing_speech::BingSpeech;
+use crate::coefont_try::CoefontTry;
 use crate::db::{INMEMORY_DB, PERSISTENT_DB};
 use crate::google_translate::GoogleTranslate;
 use crate::ktts::KTTS;
@@ -44,8 +46,6 @@ use crate::tts::TtsServices;
 use crate::voiceroid::Voiceroid;
 use crate::voicevox::Voicevox;
 use crate::winrttts::WinRTTTS;
-use crate::bing_speech::BingSpeech;
-use crate::coefont_try::CoefontTry;
 
 struct Bot {
     tts_services: TtsServices,
@@ -164,9 +164,11 @@ impl EventHandler for Bot {
         };
 
         // Get the bot's current voice channel
-        let bot_channel_id = handler.lock().await.current_channel().map(|id| {
-            serenity::model::id::ChannelId::new(id.0.get())
-        });
+        let bot_channel_id = handler
+            .lock()
+            .await
+            .current_channel()
+            .map(|id| serenity::model::id::ChannelId::new(id.0.get()));
 
         // Determine if user joined or left
         let user = &new.user_id;
@@ -246,6 +248,9 @@ static CLI_OPTIONS: OnceCell<model::Cli> = OnceCell::new();
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::init();
+
+    rustls::crypto::CryptoProvider::install_default(rustls::crypto::aws_lc_rs::default_provider())
+        .unwrap();
 
     CLI_OPTIONS.set(model::Cli::parse()).unwrap();
 
