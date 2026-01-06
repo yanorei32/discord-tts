@@ -198,9 +198,9 @@ impl EventHandler for Bot {
 
         // Create join/leave message
         let message_text = if joined_bot_channel {
-            format!("{user_name} が参加しました")
+            format!("{user_name}が参加しました")
         } else {
-            format!("{user_name} が退出しました")
+            format!("{user_name}が退出しました")
         };
 
         // Get user's TTS style (or default if not set)
