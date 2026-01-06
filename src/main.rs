@@ -30,11 +30,12 @@ use serenity::{
         channel::Message,
         gateway::Ready,
         prelude::GatewayIntents,
+        voice::VoiceState,
     },
 };
 use songbird::SerenityInit;
 
-use crate::db::PERSISTENT_DB;
+use crate::db::{INMEMORY_DB, PERSISTENT_DB};
 use crate::google_translate::GoogleTranslate;
 use crate::ktts::KTTS;
 use crate::model::TtsServiceConfig;
@@ -142,6 +143,99 @@ impl EventHandler for Bot {
             }
             _ => {}
         }
+    }
+
+    async fn voice_state_update(&self, ctx: Context, old: Option<VoiceState>, new: VoiceState) {
+        // Check if the bot is active in this guild
+        let Some(guild_id) = new.guild_id else {
+            return;
+        };
+
+        let Some(_text_channel_id) = INMEMORY_DB.get_instance(guild_id) else {
+            return;
+        };
+
+        let manager = songbird::get(&ctx)
+            .await
+            .expect("Songbird is not initialized");
+
+        let Some(handler) = manager.get(guild_id) else {
+            return;
+        };
+
+        // Get the bot's current voice channel
+        let bot_channel_id = handler.lock().await.current_channel().map(|id| {
+            serenity::model::id::ChannelId::new(id.0.get())
+        });
+
+        // Determine if user joined or left
+        let user = &new.user_id;
+        let old_channel = old.as_ref().and_then(|v| v.channel_id);
+        let new_channel = new.channel_id;
+
+        // Ignore the bot's own voice state changes
+        if user == &ctx.cache.current_user().id {
+            return;
+        }
+
+        // Check if the change involves the bot's voice channel
+        let joined_bot_channel = new_channel == bot_channel_id && old_channel != bot_channel_id;
+        let left_bot_channel = old_channel == bot_channel_id && new_channel != bot_channel_id;
+
+        if !joined_bot_channel && !left_bot_channel {
+            return;
+        }
+
+        // Get user's display name
+        let user_name = if let Some(member) = new.member {
+            member.display_name().to_string()
+        } else {
+            match ctx.http.get_user(*user).await {
+                Ok(user_obj) => user_obj.name.clone(),
+                Err(_) => return,
+            }
+        };
+
+        // Create join/leave message
+        let message_text = if joined_bot_channel {
+            format!("{user_name} が参加しました")
+        } else {
+            format!("{user_name} が退出しました")
+        };
+
+        // Get user's TTS style (or default if not set)
+        let speaker = PERSISTENT_DB
+            .get_voice_setting(*user)
+            .unwrap_or(DEFAULT_TTS_STYLE.get().unwrap().clone());
+
+        // Check availability
+        let speaker = if self
+            .tts_services
+            .is_available(&speaker.service_id, &speaker.style_id)
+            .await
+        {
+            speaker
+        } else {
+            DEFAULT_TTS_STYLE.get().unwrap().clone()
+        };
+
+        // Synthesize the announcement
+        let wav = match self
+            .tts_services
+            .tts(&speaker.service_id, &speaker.style_id, &message_text)
+            .await
+        {
+            Ok(v) => v,
+            Err(_) => return,
+        };
+
+        // Enqueue the audio
+        let (source, sample_rate) = wavsource::WavSource::new(&mut Cursor::new(wav));
+        handler
+            .lock()
+            .await
+            .enqueue_input(songbird::input::RawAdapter::new(source, sample_rate, 1).into())
+            .await;
     }
 }
 
