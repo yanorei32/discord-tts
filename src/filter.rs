@@ -8,7 +8,7 @@ use serenity::{
     model::{channel::Message, id::ChannelId},
     prelude::Mentionable,
 };
-
+use serenity::all::{MessageReferenceKind, MessageType};
 use crate::db::{EMOJI_DB, INMEMORY_DB};
 
 // regex crate's named capture
@@ -58,6 +58,9 @@ where
         .count();
 
     let s = append_attachment_notification(&s, image_count, mes.attachments.len() - image_count);
+    let s = append_forward_notification(&s, mes);
+    let s = append_new_poll_notification(&s, mes);
+    let s = append_poll_result_notification(&s, mes);
     let s = replace_codeblock(&s);
     let s = suppress_whitespaces(&s)?;
 
@@ -103,6 +106,67 @@ fn append_attachment_notification(
         ret.push_str("が送信されました");
     } else {
         ret.push_str("添付");
+    }
+
+    ret.into()
+}
+
+fn append_forward_notification<'a>(
+    body: &'a str,
+    mes: &Message,
+) -> Cow<'a, str> {
+    if !mes.message_reference.iter().any(|m| m.kind == MessageReferenceKind::Forward) {
+        return body.into();
+    }
+
+    let mut ret = body.to_string();
+    if ret.is_empty() {
+        ret.push_str("メッセージが転送されました。");
+    } else {
+        ret.push_str("。メッセージ転送");
+    }
+
+    ret.into()
+}
+
+fn append_new_poll_notification<'a>(
+    body: &'a str,
+    mes: &Message,
+) -> Cow<'a, str> {
+    let Some(poll) = &mes.poll else {
+        return body.into();
+    };
+
+    let mut ret = body.to_string();
+    ret.push_str("新たな投票が作成されました");
+    if let Some(text) = &poll.question.text {
+        ret.push_str(&format!("。{}", text));
+    }
+
+    ret.into()
+}
+
+fn append_poll_result_notification<'a>(
+    body: &'a str,
+    mes: &Message,
+) -> Cow<'a, str> {
+    // serenity doesn't implement POLL_RESULT variant at 0.12.1.
+    // Ref: https://github.com/serenity-rs/serenity/issues/2948
+    if mes.kind != MessageType::Unknown(46) {
+        return body.into();
+    }
+
+    let Some(embed) = mes.embeds.first() else {
+        return body.into();
+    };
+
+    let mut ret = body.to_string();
+    ret.push_str("投票結果が発表されました。");
+
+    if let Some(text) = embed.fields.iter().find(|field| field.name == "victor_answer_text") {
+        ret.push_str(&format!("一位、{}", &text.value));
+    } else {
+        ret.push_str("結論得ず");
     }
 
     ret.into()
