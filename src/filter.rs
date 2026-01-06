@@ -139,8 +139,9 @@ fn append_new_poll_notification<'a>(
 
     let mut ret = body.to_string();
     ret.push_str("新たな投票が作成されました");
+
     if let Some(text) = &poll.question.text {
-        ret.push_str(&format!("。{}", text));
+        ret = format!("{ret}。{text}");
     }
 
     ret.into()
@@ -164,7 +165,7 @@ fn append_poll_result_notification<'a>(
     ret.push_str("投票結果が発表されました。");
 
     if let Some(text) = embed.fields.iter().find(|field| field.name == "victor_answer_text") {
-        ret.push_str(&format!("一位、{}", &text.value));
+        ret = format!("{ret}一位、{}", &text.value);
     } else {
         ret.push_str("結論得ず");
     }

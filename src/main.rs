@@ -222,13 +222,12 @@ impl EventHandler for Bot {
         };
 
         // Synthesize the announcement
-        let wav = match self
+        let Ok(wav) = self
             .tts_services
             .tts(&speaker.service_id, &speaker.style_id, &message_text)
             .await
-        {
-            Ok(v) => v,
-            Err(_) => return,
+        else {
+            return;
         };
 
         // Enqueue the audio
