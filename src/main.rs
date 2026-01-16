@@ -10,6 +10,7 @@ mod ktts;
 mod model;
 mod naver;
 mod songbird_handler;
+mod timestretch;
 mod tts;
 mod voiceroid;
 mod voicevox;

@@ -3,6 +3,8 @@ use std::io::{Read, Result, Seek, SeekFrom};
 use hound::WavReader;
 use symphonia_core::io::MediaSource;
 
+use crate::timestretch::apply_time_stretch;
+
 pub struct WavSource<'a> {
     iterator: Box<dyn Iterator<Item = u8> + 'a + Send + Sync>,
 }
@@ -22,6 +24,9 @@ impl WavSource<'_> {
         let data: Vec<i16> = wave.samples().map(|v| v.unwrap()).collect();
 
         let sample_rate = wave.spec().sample_rate;
+        let channels = wave.spec().channels as usize;
+
+        let data = apply_time_stretch(&data, channels, sample_rate);
 
         if sample_rate <= 24000 {
             (
