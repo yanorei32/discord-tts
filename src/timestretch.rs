@@ -2,16 +2,12 @@ use rubato::{
     Resampler, SincFixedIn, SincInterpolationParameters, SincInterpolationType, WindowFunction,
 };
 
-const TARGET_SPEED: f64 = 3.0;
-const RAMP_DURATION_SEC: f64 = 20.0;
-const INITIAL_DELAY_SEC: f64 = 10.0;
-const CHUNK_SIZE: usize = 1024;
-
 /// Applies time-stretching acceleration to the input audio.
 pub fn apply_time_stretch(
     input_samples: &[i16],
     channels: usize,
     input_sample_rate: u32,
+    config: &crate::model::TimeStretchConfig,
 ) -> Vec<i16> {
     // 1. Setup Resampler
     let params = SincInterpolationParameters {
@@ -25,10 +21,12 @@ pub fn apply_time_stretch(
     let base_ratio = 1.0;
 
     // Derived constants based on sample logic, adjusted for base_ratio
-    let max_relative_ratio = TARGET_SPEED * 1.1;
+    let max_relative_ratio = config.target_speed * 1.1;
+
+    let chunk_size = (input_sample_rate as usize / 30).max(3096);
 
     let mut resampler =
-        SincFixedIn::<f32>::new(base_ratio, max_relative_ratio, params, CHUNK_SIZE, channels)
+        SincFixedIn::<f32>::new(base_ratio, max_relative_ratio, params, chunk_size, channels)
             .expect("failed to create resampler");
 
     // Limits for ratio
@@ -48,18 +46,18 @@ pub fn apply_time_stretch(
     let mut processed_frames: u64 = 0;
 
     // Process loop
-    while input_frames[0].len() >= CHUNK_SIZE {
+    while input_frames[0].len() >= chunk_size {
         // `chunk_size` is the input chunk size for SincFixedIn.
         #[allow(clippy::cast_precision_loss)]
         let processed_seconds = processed_frames as f64 / f64::from(input_sample_rate);
 
-        let progress = if processed_seconds < INITIAL_DELAY_SEC {
+        let progress = if processed_seconds < config.initial_delay {
             0.0
         } else {
-            ((processed_seconds - INITIAL_DELAY_SEC) / RAMP_DURATION_SEC).min(1.0)
+            ((processed_seconds - config.initial_delay) / config.ramp_duration).min(1.0)
         };
 
-        let current_speed = 1.0 + (TARGET_SPEED - 1.0) * progress;
+        let current_speed = 1.0 + (config.target_speed - 1.0) * progress;
 
         // Target ratio logic from sample: 1.0 / current_speed
         // Modified by base_ratio for SR conversion
@@ -70,14 +68,14 @@ pub fn apply_time_stretch(
 
         resampler.set_resample_ratio(clamped_ratio, true).unwrap();
 
-        let mut chunk = vec![vec![0.0; CHUNK_SIZE]; channels];
+        let mut chunk = vec![vec![0.0; chunk_size]; channels];
         for c in 0..channels {
-            let part: Vec<f32> = input_frames[c].drain(0..CHUNK_SIZE).collect();
+            let part: Vec<f32> = input_frames[c].drain(0..chunk_size).collect();
             chunk[c] = part;
         }
 
         let resampled_output = resampler.process(&chunk, None).expect("resampling failed");
-        processed_frames += CHUNK_SIZE as u64;
+        processed_frames += chunk_size as u64;
 
         // Interleave result
         if !resampled_output.is_empty() {
@@ -95,14 +93,14 @@ pub fn apply_time_stretch(
     // Flush remaining
     let remaining = input_frames[0].len();
     if remaining > 0 {
-        let padding = CHUNK_SIZE - remaining;
+        let padding = chunk_size - remaining;
         for channel_buffer in &mut input_frames {
             channel_buffer.extend(std::iter::repeat_n(0.0, padding));
         }
 
-        let mut chunk = vec![vec![0.0; CHUNK_SIZE]; channels];
+        let mut chunk = vec![vec![0.0; chunk_size]; channels];
         for c in 0..channels {
-            let part: Vec<f32> = input_frames[c].drain(0..CHUNK_SIZE).collect();
+            let part: Vec<f32> = input_frames[c].drain(0..chunk_size).collect();
             chunk[c] = part;
         }
 

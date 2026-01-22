@@ -51,6 +51,7 @@ use crate::winrttts::WinRTTTS;
 struct Bot {
     tts_services: TtsServices,
     prefix: String,
+    timestretch_config: model::TimeStretchConfig,
 }
 
 #[async_trait]
@@ -119,7 +120,8 @@ impl EventHandler for Bot {
             Ok(v) => v,
         };
 
-        let (source, sample_rate) = wavsource::WavSource::new(&mut Cursor::new(wav));
+        let (source, sample_rate) =
+            wavsource::WavSource::new(&mut Cursor::new(wav), &self.timestretch_config);
         handler
             .lock()
             .await
@@ -232,7 +234,8 @@ impl EventHandler for Bot {
         };
 
         // Enqueue the audio
-        let (source, sample_rate) = wavsource::WavSource::new(&mut Cursor::new(wav));
+        let (source, sample_rate) =
+            wavsource::WavSource::new(&mut Cursor::new(wav), &self.timestretch_config);
         handler
             .lock()
             .await
@@ -354,10 +357,13 @@ async fn main() {
         | GatewayIntents::GUILD_MESSAGES
         | GatewayIntents::MESSAGE_CONTENT;
 
+    let timestretch_config = tts_config.timestretch.unwrap_or_default();
+
     let mut client = Client::builder(&cli.discord_token, intents)
         .event_handler(Bot {
             tts_services,
             prefix: cli.command_prefix.clone().unwrap_or_default(),
+            timestretch_config,
         })
         .register_songbird()
         .await
