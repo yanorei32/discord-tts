@@ -23,7 +23,7 @@ pub fn apply_time_stretch(
     // Derived constants based on sample logic, adjusted for base_ratio
     let max_relative_ratio = config.target_speed * 1.1;
 
-    let chunk_size = (input_sample_rate as usize / 30).max(3096);
+    let chunk_size = (input_sample_rate as usize / 30).max(4096);
 
     let mut resampler =
         SincFixedIn::<f32>::new(base_ratio, max_relative_ratio, params, chunk_size, channels)
