@@ -41,6 +41,25 @@ pub enum TtsServiceConfig {
 pub struct TtsConfig {
     pub default_style: TtsStyle,
     pub tts_services: HashMap<String, TtsServiceConfig>,
+    #[serde(default)]
+    pub timestretch: Option<TimeStretchConfig>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+pub struct TimeStretchConfig {
+    pub target_speed: f64,
+    pub ramp_duration: f64,
+    pub initial_delay: f64,
+}
+
+impl Default for TimeStretchConfig {
+    fn default() -> Self {
+        Self {
+            target_speed: 3.0,
+            ramp_duration: 20.0,
+            initial_delay: 10.0,
+        }
+    }
 }
 
 impl TtsConfig {

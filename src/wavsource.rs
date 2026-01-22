@@ -3,6 +3,8 @@ use std::io::{Read, Result, Seek, SeekFrom};
 use hound::WavReader;
 use symphonia_core::io::MediaSource;
 
+use crate::timestretch::apply_time_stretch;
+
 pub struct WavSource<'a> {
     iterator: Box<dyn Iterator<Item = u8> + 'a + Send + Sync>,
 }
@@ -17,11 +19,17 @@ fn completion_2x(cum: &mut i16, v: i16) -> Option<[i16; 2]> {
 }
 
 impl WavSource<'_> {
-    pub fn new<R: Seek + Read>(reader: &mut R) -> (Self, u32) {
+    pub fn new<R: Seek + Read>(
+        reader: &mut R,
+        config: &crate::model::TimeStretchConfig,
+    ) -> (Self, u32) {
         let mut wave = WavReader::new(reader).unwrap();
         let data: Vec<i16> = wave.samples().map(|v| v.unwrap()).collect();
 
         let sample_rate = wave.spec().sample_rate;
+        let channels = wave.spec().channels as usize;
+
+        let data = apply_time_stretch(&data, channels, sample_rate, config);
 
         if sample_rate <= 24000 {
             (
