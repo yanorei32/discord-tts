@@ -1,5 +1,8 @@
+use audioadapter_buffers::owned::SequentialOwned;
+use rubato::audioadapter::{Adapter, AdapterMut};
 use rubato::{
-    Resampler, SincFixedIn, SincInterpolationParameters, SincInterpolationType, WindowFunction,
+    Async, FixedAsync, Resampler, SincInterpolationParameters, SincInterpolationType,
+    WindowFunction,
 };
 
 /// Applies time-stretching acceleration to the input audio.
@@ -25,9 +28,15 @@ pub fn apply_time_stretch(
 
     let chunk_size = (input_sample_rate as usize / 30).max(4096);
 
-    let mut resampler =
-        SincFixedIn::<f32>::new(base_ratio, max_relative_ratio, params, chunk_size, channels)
-            .expect("failed to create resampler");
+    let mut resampler = Async::<f32>::new_sinc(
+        base_ratio,
+        max_relative_ratio,
+        &params,
+        chunk_size,
+        channels,
+        FixedAsync::Input,
+    )
+    .expect("failed to create resampler");
 
     // Limits for ratio
     let min_allowed_ratio = base_ratio / max_relative_ratio;
@@ -68,20 +77,32 @@ pub fn apply_time_stretch(
 
         resampler.set_resample_ratio(clamped_ratio, true).unwrap();
 
-        let mut chunk = vec![vec![0.0; chunk_size]; channels];
+        let mut chunk_data = vec![vec![0.0f32; chunk_size]; channels];
         for c in 0..channels {
             let part: Vec<f32> = input_frames[c].drain(0..chunk_size).collect();
-            chunk[c] = part;
+            chunk_data[c] = part;
         }
 
-        let resampled_output = resampler.process(&chunk, None).expect("resampling failed");
+        let mut input_buf: SequentialOwned<f32> =
+            SequentialOwned::new(0.0f32, channels, chunk_size);
+        for c in 0..channels {
+            for i in 0..chunk_size {
+                input_buf
+                    .write_sample(c, i, &chunk_data[c][i])
+                    .expect("write failed");
+            }
+        }
+
+        let resampled_output = resampler
+            .process(&input_buf, chunk_size, None)
+            .expect("resampling failed");
         processed_frames += chunk_size as u64;
 
         // Interleave result
-        if !resampled_output.is_empty() {
-            for i in 0..resampled_output[0].len() {
-                for channel_data in &resampled_output {
-                    let sample = channel_data[i];
+        if resampled_output.frames() > 0 {
+            for i in 0..resampled_output.frames() {
+                for c in 0..channels {
+                    let sample = resampled_output.read_sample(c, i).unwrap_or(0.0f32);
                     #[allow(clippy::cast_possible_truncation)]
                     let sample = (sample * f32::from(i16::MAX)) as i16;
                     output_audio.push(sample);
@@ -94,21 +115,32 @@ pub fn apply_time_stretch(
     let remaining = input_frames[0].len();
     if remaining > 0 {
         let padding = chunk_size - remaining;
-        for channel_buffer in &mut input_frames {
-            channel_buffer.extend(std::iter::repeat_n(0.0, padding));
-        }
 
-        let mut chunk = vec![vec![0.0; chunk_size]; channels];
+        // Prepare padded chunk
+        let mut chunk_data = vec![vec![0.0f32; chunk_size]; channels];
         for c in 0..channels {
-            let part: Vec<f32> = input_frames[c].drain(0..chunk_size).collect();
-            chunk[c] = part;
+            let part: Vec<f32> = input_frames[c].drain(0..remaining).collect();
+            chunk_data[c] = part;
+            chunk_data[c].extend(std::iter::repeat_n(0.0f32, padding));
         }
 
-        let resampled_output = resampler.process(&chunk, None).expect("resampling failed");
+        let mut input_buf: SequentialOwned<f32> =
+            SequentialOwned::new(0.0f32, channels, chunk_size);
+        for c in 0..channels {
+            for i in 0..chunk_size {
+                input_buf
+                    .write_sample(c, i, &chunk_data[c][i])
+                    .expect("write failed");
+            }
+        }
 
-        for i in 0..resampled_output[0].len() {
-            for channel_data in &resampled_output {
-                let sample = channel_data[i];
+        let resampled_output = resampler
+            .process(&input_buf, chunk_size, None)
+            .expect("resampling failed");
+
+        for i in 0..resampled_output.frames() {
+            for c in 0..channels {
+                let sample = resampled_output.read_sample(c, i).unwrap_or(0.0f32);
                 #[allow(clippy::cast_possible_truncation)]
                 let sample = (sample * f32::from(i16::MAX)) as i16;
                 output_audio.push(sample);
