@@ -62,7 +62,7 @@ sha2 = "0.10.9"
 hex = "0.4.3"
 uuid = { version = "1.19.0", features = ["v4"] }
 ssml = "0.2.0"
-rubato = "0.14"
+rubato = "0.16"
 
 [profile.release]
 strip = true
