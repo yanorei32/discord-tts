@@ -191,6 +191,27 @@ impl EventHandler for Bot {
             return;
         }
 
+        // If the bot is now alone in the voice channel, leave automatically.
+        if left_bot_channel {
+            let is_alone = ctx
+                .cache
+                .guild(guild_id)
+                .map(|guild| {
+                    guild
+                        .voice_states
+                        .values()
+                        .filter(|voice_state| voice_state.channel_id == bot_channel_id)
+                        .count()
+                        == 1
+                })
+                .unwrap_or(false);
+
+            if is_alone {
+                manager.leave(guild_id).await.ok();
+                return;
+            }
+        }
+
         // Get user's display name
         let user_name = if let Some(member) = new.member {
             member.display_name().to_string()
