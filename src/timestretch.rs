@@ -26,20 +26,32 @@ pub fn apply_time_stretch(
     // Derived constants based on sample logic, adjusted for base_ratio
     let max_relative_ratio = config.target_speed * 1.1;
 
-    let chunk_size = (input_sample_rate as usize / 30).max(4096);
+    // Calculate minimum chunk size
+    let min_chunk_size = (input_sample_rate as usize / 30).max(4096);
 
-    let mut resampler = Async::<f32>::new_sinc(
+    // Create a temporary resampler to determine the actual required input size
+    let mut temp_resampler = Async::<f32>::new_sinc(
         base_ratio,
         max_relative_ratio,
         &params,
-        chunk_size,
+        min_chunk_size,
         channels,
         FixedAsync::Input,
     )
     .expect("failed to create resampler");
 
-    // Get the actual required input size from the resampler
-    let required_input_size = resampler.input_frames_next();
+    let required_input_size = temp_resampler.input_frames_next();
+
+    // Now create the actual resampler with the correct size
+    let mut resampler = Async::<f32>::new_sinc(
+        base_ratio,
+        max_relative_ratio,
+        &params,
+        required_input_size,
+        channels,
+        FixedAsync::Input,
+    )
+    .expect("failed to create resampler");
 
     // Limits for ratio
     let min_allowed_ratio = base_ratio / max_relative_ratio;
