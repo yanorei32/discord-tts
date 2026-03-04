@@ -38,6 +38,9 @@ pub fn apply_time_stretch(
     )
     .expect("failed to create resampler");
 
+    // Get the actual required input size from the resampler
+    let required_input_size = resampler.input_frames_next();
+
     // Limits for ratio
     let min_allowed_ratio = base_ratio / max_relative_ratio;
     let max_allowed_ratio = base_ratio * max_relative_ratio;
@@ -55,7 +58,7 @@ pub fn apply_time_stretch(
     let mut processed_frames: u64 = 0;
 
     // Process loop
-    while input_frames[0].len() >= chunk_size {
+    while input_frames[0].len() >= required_input_size {
         // `chunk_size` is the input chunk size for SincFixedIn.
         #[allow(clippy::cast_precision_loss)]
         let processed_seconds = processed_frames as f64 / f64::from(input_sample_rate);
@@ -77,16 +80,16 @@ pub fn apply_time_stretch(
 
         resampler.set_resample_ratio(clamped_ratio, true).unwrap();
 
-        let mut chunk_data = vec![vec![0.0f32; chunk_size]; channels];
+        let mut chunk_data = vec![vec![0.0f32; required_input_size]; channels];
         for c in 0..channels {
-            let part: Vec<f32> = input_frames[c].drain(0..chunk_size).collect();
+            let part: Vec<f32> = input_frames[c].drain(0..required_input_size).collect();
             chunk_data[c] = part;
         }
 
         let mut input_buf: SequentialOwned<f32> =
-            SequentialOwned::new(0.0f32, channels, chunk_size);
+            SequentialOwned::new(0.0f32, channels, required_input_size);
         for c in 0..channels {
-            for i in 0..chunk_size {
+            for i in 0..required_input_size {
                 input_buf
                     .write_sample(c, i, &chunk_data[c][i])
                     .expect("write failed");
@@ -94,9 +97,9 @@ pub fn apply_time_stretch(
         }
 
         let resampled_output = resampler
-            .process(&input_buf, chunk_size, None)
+            .process(&input_buf, required_input_size, None)
             .expect("resampling failed");
-        processed_frames += chunk_size as u64;
+        processed_frames += required_input_size as u64;
 
         // Interleave result
         if resampled_output.frames() > 0 {
@@ -114,10 +117,10 @@ pub fn apply_time_stretch(
     // Flush remaining
     let remaining = input_frames[0].len();
     if remaining > 0 {
-        let padding = chunk_size - remaining;
+        let padding = required_input_size - remaining;
 
         // Prepare padded chunk
-        let mut chunk_data = vec![vec![0.0f32; chunk_size]; channels];
+        let mut chunk_data = vec![vec![0.0f32; required_input_size]; channels];
         for c in 0..channels {
             let part: Vec<f32> = input_frames[c].drain(0..remaining).collect();
             chunk_data[c] = part;
@@ -125,9 +128,9 @@ pub fn apply_time_stretch(
         }
 
         let mut input_buf: SequentialOwned<f32> =
-            SequentialOwned::new(0.0f32, channels, chunk_size);
+            SequentialOwned::new(0.0f32, channels, required_input_size);
         for c in 0..channels {
-            for i in 0..chunk_size {
+            for i in 0..required_input_size {
                 input_buf
                     .write_sample(c, i, &chunk_data[c][i])
                     .expect("write failed");
@@ -135,7 +138,7 @@ pub fn apply_time_stretch(
         }
 
         let resampled_output = resampler
-            .process(&input_buf, chunk_size, None)
+            .process(&input_buf, required_input_size, None)
             .expect("resampling failed");
 
         for i in 0..resampled_output.frames() {
