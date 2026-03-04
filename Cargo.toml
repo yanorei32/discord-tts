@@ -26,7 +26,7 @@ serenity = { version = "0.12.1", features = [
     "voice",
     "rustls_backend",
 ], default-features = false }
-songbird = { version = "0.5.0", features = [
+songbird = { git = "https://github.com/beerpsi-forks/songbird.git", rev = "25195877c715e08df25eda668df6b3a6bb3d3cdf", features = [
     "builtin-queue",
     "gateway",
     "serenity",
