@@ -52,6 +52,7 @@ struct Bot {
     tts_services: TtsServices,
     prefix: String,
     timestretch_config: model::TimeStretchConfig,
+    auto_leave_when_alone: bool,
 }
 
 #[async_trait]
@@ -189,6 +190,27 @@ impl EventHandler for Bot {
 
         if !joined_bot_channel && !left_bot_channel {
             return;
+        }
+
+        // If the bot is now alone in the voice channel, leave automatically.
+        if self.auto_leave_when_alone && left_bot_channel {
+            let is_alone = ctx
+                .cache
+                .guild(guild_id)
+                .map(|guild| {
+                    guild
+                        .voice_states
+                        .values()
+                        .filter(|voice_state| voice_state.channel_id == bot_channel_id)
+                        .count()
+                        == 1
+                })
+                .unwrap_or(false);
+
+            if is_alone {
+                manager.leave(guild_id).await.ok();
+                return;
+            }
         }
 
         // Get user's display name
@@ -358,12 +380,14 @@ async fn main() {
         | GatewayIntents::MESSAGE_CONTENT;
 
     let timestretch_config = tts_config.timestretch.unwrap_or_default();
+    let auto_leave_when_alone = tts_config.auto_leave_when_alone;
 
     let mut client = Client::builder(&cli.discord_token, intents)
         .event_handler(Bot {
             tts_services,
             prefix: cli.command_prefix.clone().unwrap_or_default(),
             timestretch_config,
+            auto_leave_when_alone,
         })
         .register_songbird()
         .await

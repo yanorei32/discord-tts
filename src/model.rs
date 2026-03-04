@@ -43,6 +43,8 @@ pub struct TtsConfig {
     pub tts_services: HashMap<String, TtsServiceConfig>,
     #[serde(default)]
     pub timestretch: Option<TimeStretchConfig>,
+    #[serde(default)]
+    pub auto_leave_when_alone: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
