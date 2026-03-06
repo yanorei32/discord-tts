@@ -796,6 +796,7 @@ dependencies = [
  "toml",
  "tracing",
  "tracing-subscriber",
+ "tungstenite 0.28.0",
  "uuid",
 ]
 

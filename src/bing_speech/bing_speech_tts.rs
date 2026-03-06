@@ -1,6 +1,6 @@
 use anyhow::Result;
 use futures::{SinkExt, StreamExt};
-use reqwest::Url;
+use reqwest::{Url, header::{HeaderMap, HeaderValue}};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use ssml::Serialize as SsmlSerialize;
@@ -41,17 +41,7 @@ fn generate_sec_ms_gec() -> String {
     hex::encode(hasher.finalize()).to_uppercase()
 }
 
-pub async fn list_voices() -> Result<Vec<Voice>> {
-    use reqwest::header::{HeaderMap, HeaderValue};
-
-    let url = format!(
-        "https://speech.platform.bing.com/consumer/speech/synthesize/readaloud/voices/list?trustedclienttoken={}&Sec-MS-GEC={}&Sec-MS-GEC-Version={}",
-        TRUSTED_CLIENT_TOKEN,
-        generate_sec_ms_gec(),
-        SEC_MS_GEC_VERSION
-    );
-
-    let mut headers = HeaderMap::new();
+pub fn edgenize(headers: &mut HeaderMap) {
     headers.insert("Authority", HeaderValue::from_static("speech.platform.bing.com"));
     headers.insert(
         "Sec-CH-UA",
@@ -67,7 +57,7 @@ pub async fn list_voices() -> Result<Vec<Voice>> {
     headers.insert(
         "User-Agent",
         HeaderValue::from_static(
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 Edg/130.0.0.0",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36 Edg/145.0.0.0",
         ),
     );
     headers.insert(
@@ -78,6 +68,18 @@ pub async fn list_voices() -> Result<Vec<Voice>> {
         "Accept-Language",
         HeaderValue::from_static("en-US,en;q=0.9"),
     );
+}
+
+pub async fn list_voices() -> Result<Vec<Voice>> {
+    let url = format!(
+        "https://speech.platform.bing.com/consumer/speech/synthesize/readaloud/voices/list?trustedclienttoken={}&Sec-MS-GEC={}&Sec-MS-GEC-Version={}",
+        TRUSTED_CLIENT_TOKEN,
+        generate_sec_ms_gec(),
+        SEC_MS_GEC_VERSION
+    );
+
+    let mut headers = HeaderMap::new();
+    edgenize(&mut headers);
 
     let client = reqwest::Client::new();
     let resp = client.get(&url).headers(headers).send().await?;
@@ -144,7 +146,11 @@ async fn fetch_audio_part(
         SEC_MS_GEC_VERSION
     ))?;
 
-    let (mut ws_stream, _) = connect_async(url.to_string()).await?;
+    use tungstenite::client::IntoClientRequest;
+    let mut request = url.to_string().into_client_request().unwrap();
+    edgenize(request.headers_mut());
+
+    let (mut ws_stream, _) = connect_async(request).await?;
 
     ws_stream
         .send(Message::Text(
