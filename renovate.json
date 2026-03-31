@@ -4,20 +4,18 @@
     ":semanticCommitsDisabled",
     "https://github.com/arkedge/renovate-config/raw/main/rust-toolchain.json5"
   ],
-  "regexManagers": [
+  "customManagers": [
     {
-      "fileMatch": ["init.sh"],
-      "matchStrings": [
-        "depName=(?<depName>.*?)?\\s.*?_VERSION=\"(?<currentValue>.*?)\""
-      ],
+      "customType": "regex",
+      "managerFilePatterns": ["/init.sh/"],
+      "matchStrings": ["depName=(?<depName>.*?)?\s.*?_VERSION=\"(?<currentValue>.*?)\""],
       "versioningTemplate": "loose",
       "datasourceTemplate": "repology"
     },
     {
-      "fileMatch": ["Dockerfile", "ci.yml"],
-      "matchStrings": [
-        "depName=(?<depName>.*?)?\\s.*?_VERSION=\"(?<currentValue>.*?)\""
-      ],
+      "customType": "regex",
+      "managerFilePatterns": ["/Dockerfile/", "/ci.yml/"],
+      "matchStrings": ["depName=(?<depName>.*?)?\s.*?_VERSION=\"(?<currentValue>.*?)\""],
       "versioningTemplate": "loose",
       "datasourceTemplate": "repology"
     }
