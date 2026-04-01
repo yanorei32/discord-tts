@@ -8,14 +8,14 @@
     {
       "customType": "regex",
       "managerFilePatterns": ["/init.sh/"],
-      "matchStrings": ["depName=(?<depName>.*?)?\s.*?_VERSION=\"(?<currentValue>.*?)\""],
+      "matchStrings": ["depName=(?<depName>.*?)?\\s.*?_VERSION=\"(?<currentValue>.*?)\""],
       "versioningTemplate": "loose",
       "datasourceTemplate": "repology"
     },
     {
       "customType": "regex",
       "managerFilePatterns": ["/Dockerfile/", "/ci.yml/"],
-      "matchStrings": ["depName=(?<depName>.*?)?\s.*?_VERSION=\"(?<currentValue>.*?)\""],
+      "matchStrings": ["depName=(?<depName>.*?)?\\s.*?_VERSION=\"(?<currentValue>.*?)\""],
       "versioningTemplate": "loose",
       "datasourceTemplate": "repology"
     }
