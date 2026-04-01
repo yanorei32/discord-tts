@@ -58,7 +58,7 @@ json = "0.12.4"
 tokio-tungstenite = { version = "0.29.0", features = [
     "rustls-tls-webpki-roots",
 ] }
-sha2 = "0.10.9"
+sha2 = "0.11.0"
 hex = "0.4.3"
 uuid = { version = "1.19.0", features = ["v4"] }
 ssml = "0.2.0"
