@@ -1,6 +1,6 @@
 //! Time-stretching via rubato 1.x asynchronous resampler (sinc interpolation).
 
-use audioadapter_buffers::direct::SequentialSliceOfVecs;
+use rubato::audioadapter_buffers::direct::SequentialSliceOfVecs;
 use rubato::{
     Async, FixedAsync, Indexing, Resampler, SincInterpolationParameters, SincInterpolationType,
     WindowFunction,
