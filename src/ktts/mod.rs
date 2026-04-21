@@ -180,11 +180,7 @@ impl TtsService for KTTS {
     }
 
     async fn styles(&self) -> Result<Vec<CharacterView>> {
-        let mut styles = vec![StyleView {
-            icon: vec![],
-            name: "Default".to_string(),
-            id: "Default".to_string(),
-        }];
+        let mut styles = vec![];
 
         if self.inner.g2p_url.is_some() {
             styles.push(StyleView {
@@ -193,6 +189,12 @@ impl TtsService for KTTS {
                 id: "G2P".to_string(),
             });
         }
+
+        styles.push(StyleView {
+            icon: vec![],
+            name: "Default".to_string(),
+            id: "Default".to_string(),
+        });
 
         Ok(vec![CharacterView {
             name: "Default".to_string(),
