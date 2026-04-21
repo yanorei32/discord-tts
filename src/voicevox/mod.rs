@@ -1,9 +1,11 @@
 use std::collections::HashMap;
+use std::io::Cursor;
 use std::sync::Arc;
 
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use futures::future;
+use hound::WavReader;
 use json::JsonValue;
 use reqwest::{
     Url,
@@ -12,7 +14,7 @@ use reqwest::{
 use serde::Deserialize;
 use tap::Tap;
 
-use crate::tts::{CharacterView, StyleView, TtsService};
+use crate::tts::{split_long_text, CharacterView, StyleView, TtsService};
 
 mod api;
 
@@ -48,63 +50,98 @@ struct VoicevoxInner {
 #[async_trait]
 impl TtsService for Voicevox {
     async fn tts(&self, style_id: &str, text: &str) -> Result<Vec<u8>> {
-        let url = self.inner.host.clone().tap_mut(|u| {
-            u.path_segments_mut().unwrap().push("audio_query");
-            u.query_pairs_mut()
-                .clear()
-                .append_pair("text", text)
-                .append_pair("speaker", style_id);
-        });
+        // VOICEVOX may run out of VRAM with long text, so split it into smaller chunks
+        const VOICEVOX_MAX_CHARS: usize = 200;
+        let parts = split_long_text(text, VOICEVOX_MAX_CHARS);
+        let mut all_samples: Vec<i16> = Vec::new();
+        let mut sample_rate = 24000u32;
 
-        let resp = self
-            .inner
-            .client
-            .post(url)
-            .send()
-            .await
-            .context("Failed to post /audio_query (send)")?;
+        for part in parts {
+            let url = self.inner.host.clone().tap_mut(|u| {
+                u.path_segments_mut().unwrap().push("audio_query");
+                u.query_pairs_mut()
+                    .clear()
+                    .append_pair("text", &part)
+                    .append_pair("speaker", style_id);
+            });
 
-        let query_text = resp
-            .error_for_status()
-            .context("Failed to post /audio_query (status)")?
-            .text()
-            .await
-            .context("Failed to post /audio_query (text)")?;
+            let resp = self
+                .inner
+                .client
+                .post(url)
+                .send()
+                .await
+                .context("Failed to post /audio_query (send)")?;
 
-        let url = self.inner.host.clone().tap_mut(|u| {
-            u.path_segments_mut().unwrap().push("synthesis");
-            u.query_pairs_mut().clear().append_pair("speaker", style_id);
-        });
+            let query_text = resp
+                .error_for_status()
+                .context("Failed to post /audio_query (status)")?
+                .text()
+                .await
+                .context("Failed to post /audio_query (text)")?;
 
-        let query_text = match json::parse(&query_text).context("Faield to parse query")? {
-            JsonValue::Object(mut obj) => {
-                obj.insert(
-                    "volumeScale",
-                    JsonValue::Number(self.inner.master_volume.into()),
-                );
-                json::stringify(obj)
+            let url = self.inner.host.clone().tap_mut(|u| {
+                u.path_segments_mut().unwrap().push("synthesis");
+                u.query_pairs_mut().clear().append_pair("speaker", style_id);
+            });
+
+            let query_text = match json::parse(&query_text).context("Failed to parse query")? {
+                JsonValue::Object(mut obj) => {
+                    obj.insert(
+                        "volumeScale",
+                        JsonValue::Number(self.inner.master_volume.into()),
+                    );
+                    json::stringify(obj)
+                }
+                _ => anyhow::bail!("Non-object JSON is coming"),
+            };
+
+            let resp = self
+                .inner
+                .client
+                .post(url)
+                .header(CONTENT_TYPE, "application/json")
+                .body(query_text)
+                .send()
+                .await
+                .context("Failed to post /synthesis (send)")?
+                .error_for_status()
+                .context("Failed to post /synthesis (status)")?;
+
+            let wav_data = resp
+                .bytes()
+                .await
+                .context("Failed to post /synthesis (body)")?;
+
+            // Read WAV and collect samples
+            let mut reader = WavReader::new(Cursor::new(wav_data))?;
+            let spec = reader.spec();
+            if all_samples.is_empty() {
+                sample_rate = spec.sample_rate;
             }
-            _ => anyhow::bail!("Non-object JSON is coming"),
+
+            for sample in reader.samples::<i16>() {
+                all_samples.push(sample?);
+            }
+        }
+
+        // Write combined samples to WAV
+        let spec = hound::WavSpec {
+            channels: 1,
+            sample_rate,
+            bits_per_sample: 16,
+            sample_format: hound::SampleFormat::Int,
         };
+        let mut cursor = Cursor::new(Vec::new());
+        {
+            let mut writer = hound::WavWriter::new(&mut cursor, spec)?;
+            for sample in all_samples {
+                writer.write_sample(sample)?;
+            }
+            writer.finalize()?;
+        }
 
-        let resp = self
-            .inner
-            .client
-            .post(url)
-            .header(CONTENT_TYPE, "application/json")
-            .body(query_text)
-            .send()
-            .await
-            .context("Failed to post /synthesis (send)")?
-            .error_for_status()
-            .context("Failed to post /synthesis (status)")?;
-
-        let bin = resp
-            .bytes()
-            .await
-            .context("Failed to post /synthesis (body)")?;
-
-        Ok(bin.to_vec())
+        Ok(cursor.into_inner())
     }
 
     async fn styles(&self) -> Result<Vec<CharacterView>> {
