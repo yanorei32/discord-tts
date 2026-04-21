@@ -26,6 +26,10 @@ fn default_headers() -> HashMap<String, String> {
     HashMap::new()
 }
 
+fn default_max_chars() -> usize {
+    0
+}
+
 #[derive(Deserialize, Debug, Clone)]
 pub struct Setting {
     pub url: reqwest::Url,
@@ -33,6 +37,8 @@ pub struct Setting {
     pub headers: HashMap<String, String>,
     #[serde(default = "default_master_volume")]
     pub master_volume: f64,
+    #[serde(default = "default_max_chars")]
+    pub max_chars: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -45,14 +51,19 @@ struct VoicevoxInner {
     host: Url,
     client: reqwest::Client,
     master_volume: f64,
+    max_chars: usize,
 }
 
 #[async_trait]
 impl TtsService for Voicevox {
     async fn tts(&self, style_id: &str, text: &str) -> Result<Vec<u8>> {
         // VOICEVOX may run out of VRAM with long text, so split it into smaller chunks
-        const VOICEVOX_MAX_CHARS: usize = 200;
-        let parts = split_long_text(text, VOICEVOX_MAX_CHARS);
+        // max_chars = 0 means no limit (don't split)
+        let parts = if self.inner.max_chars == 0 {
+            vec![text.to_string()]
+        } else {
+            split_long_text(text, self.inner.max_chars)
+        };
         let mut all_samples: Vec<i16> = Vec::new();
         let mut sample_rate = 24000u32;
 
@@ -251,6 +262,7 @@ impl Voicevox {
         Ok(Voicevox {
             inner: Arc::new(VoicevoxInner {
                 master_volume: setting.master_volume,
+                max_chars: setting.max_chars,
                 host,
                 client,
             }),
