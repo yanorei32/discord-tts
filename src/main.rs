@@ -7,6 +7,7 @@ mod db;
 mod filter;
 mod google_translate;
 mod ktts;
+mod mirae_tts;
 mod model;
 mod naver;
 mod songbird_handler;
@@ -41,6 +42,7 @@ use crate::coefont_try::CoefontTry;
 use crate::db::{INMEMORY_DB, PERSISTENT_DB};
 use crate::google_translate::GoogleTranslate;
 use crate::ktts::KTTS;
+use crate::mirae_tts::MiraeTTS;
 use crate::model::TtsServiceConfig;
 use crate::naver::Naver;
 use crate::tts::TtsServices;
@@ -328,6 +330,21 @@ async fn main() {
                             KTTS::new(config)
                                 .with_context(|| {
                                     format!("Failed to initialize KTTS backend ({service_id})")
+                                })
+                                .unwrap(),
+                        ),
+                    )
+                    .await
+            }
+            
+            TtsServiceConfig::MiraeTTS(config) => {
+                tts_services
+                    .register(
+                        service_id,
+                        Box::new(
+                            MiraeTTS::new(config)
+                                .with_context(|| {
+                                    format!("Failed to initialize MiraeTTS backend ({service_id})")
                                 })
                                 .unwrap(),
                         ),
