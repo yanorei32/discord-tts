@@ -5,6 +5,8 @@
   - Native VOICEVOX API support
 - VOICEROID
   - works with https://github.com/yanorei32/aitalked-server
+- mirae-tts
+  - works with https://github.com/yanorei32/mirae-tts
 - kttsproject
   - works with https://github.com/yanorei32/libktts-server
 - WinRT
