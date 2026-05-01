@@ -30,6 +30,7 @@ pub enum TtsServiceConfig {
     Voiceroid(crate::voiceroid::Setting),
     Voicevox(crate::voicevox::Setting),
     KTTS(crate::ktts::Setting),
+    MiraeTTS(crate::mirae_tts::Setting),
     WinRTTTS(crate::winrttts::Setting),
     GoogleTranslate(crate::google_translate::Setting),
     Naver(crate::naver::Setting),
