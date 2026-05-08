@@ -17,6 +17,7 @@ mod voiceroid;
 mod voicevox;
 mod wavsource;
 mod winrttts;
+mod android_tts;
 
 use std::io::Cursor;
 
@@ -49,6 +50,7 @@ use crate::tts::TtsServices;
 use crate::voiceroid::Voiceroid;
 use crate::voicevox::Voicevox;
 use crate::winrttts::WinRTTTS;
+use crate::android_tts::AndroidTTS;
 
 struct Bot {
     tts_services: TtsServices,
@@ -384,6 +386,20 @@ async fn main() {
             TtsServiceConfig::CoefontTry(config) => {
                 tts_services
                     .register(service_id, Box::new(CoefontTry::new(config)))
+                    .await
+            }
+            TtsServiceConfig::AndroidTTS(config) => {
+                tts_services
+                    .register(
+                        service_id,
+                        Box::new(
+                            AndroidTTS::new(config)
+                                .with_context(|| {
+                                    format!("Failed to initialize AndroidTTS backend ({service_id})")
+                                })
+                                .unwrap(),
+                        ),
+                    )
                     .await
             }
         }
