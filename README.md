@@ -11,6 +11,8 @@
   - works with https://github.com/yanorei32/libktts-server
 - WinRT
   - works with https://github.com/yanorei32/winrt-tts-server
+- Android TTS (TextToSpeech API)
+  - works with https://github.com/REO2248/android-tts-server
 - ⚠ Google Translate
   - based on https://github.com/zlargon/google-tts by [@sim1222](https://github.com/sim1222)
 - ⚠ NAVER CLOVA
