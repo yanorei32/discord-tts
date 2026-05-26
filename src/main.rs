@@ -201,15 +201,14 @@ impl EventHandler for Bot {
             let is_alone = ctx
                 .cache
                 .guild(guild_id)
-                .map(|guild| {
+                .is_some_and(|guild| {
                     guild
                         .voice_states
                         .values()
                         .filter(|voice_state| voice_state.channel_id == bot_channel_id)
                         .count()
                         == 1
-                })
-                .unwrap_or(false);
+                });
 
             if is_alone {
                 manager.leave(guild_id).await.ok();

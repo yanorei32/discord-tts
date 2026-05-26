@@ -7,6 +7,7 @@ use rubato::{
 };
 
 /// Applies time-stretching acceleration to the input audio.
+#[allow(clippy::too_many_lines)]
 pub fn apply_time_stretch(
     input_samples: &[i16],
     channels: usize,
@@ -96,11 +97,15 @@ pub fn apply_time_stretch(
 
         processed_frames += frames_read as u64;
 
+        #[allow(clippy::needless_range_loop)]
         for i in 0..frames_written {
+            #[allow(clippy::needless_range_loop)]
             for c in 0..channels {
                 let sample = output_chunk[c][i];
+
                 #[allow(clippy::cast_possible_truncation)]
                 let sample_i16 = (sample * f32::from(i16::MAX)) as i16;
+
                 output_audio.push(sample_i16);
             }
         }
@@ -108,10 +113,10 @@ pub fn apply_time_stretch(
 
     let remaining = input_frames[0].len();
     if remaining > 0 {
-        for c in 0..channels {
+        for f in input_frames.iter_mut().take(channels) {
             let need = resampler.input_frames_next();
-            let pad = need.saturating_sub(input_frames[c].len());
-            input_frames[c].extend(std::iter::repeat(0.0).take(pad));
+            let pad = need.saturating_sub(f.len());
+            f.extend(std::iter::repeat_n(0.0, pad));
         }
 
         let chunk_size_actual = resampler.input_frames_next();
@@ -134,11 +139,15 @@ pub fn apply_time_stretch(
             .process_into_buffer(&input_adapter, &mut output_adapter, Some(&indexing))
             .expect("resampling failed");
 
+        #[allow(clippy::needless_range_loop)]
         for i in 0..frames_written {
+            #[allow(clippy::needless_range_loop)]
             for c in 0..channels {
                 let sample = output_chunk[c][i];
+
                 #[allow(clippy::cast_possible_truncation)]
                 let sample_i16 = (sample * f32::from(i16::MAX)) as i16;
+
                 output_audio.push(sample_i16);
             }
         }

@@ -135,7 +135,9 @@ impl TtsService for AndroidTTS {
             let query = api::TtsRequest {
                 text: part,
                 voice_id: voice_id.map(String::from),
+                #[allow(clippy::float_cmp)]
                 speed: if speed == 1.0 { None } else { Some(speed) },
+                #[allow(clippy::float_cmp)]
                 pitch: if pitch == 1.0 { None } else { Some(pitch) },
             };
 
@@ -200,7 +202,7 @@ impl TtsService for AndroidTTS {
             });
         }
 
-        for (name, _config) in &self.inner.voices {
+        for name in self.inner.voices.keys() {
             styles.push(StyleView {
                 icon: vec![],
                 name: name.clone(),

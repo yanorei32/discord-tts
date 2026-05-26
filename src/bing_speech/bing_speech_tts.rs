@@ -1,11 +1,16 @@
+use std::time::{SystemTime, UNIX_EPOCH};
+
 use anyhow::Result;
 use futures::{SinkExt, StreamExt};
-use reqwest::{Url, header::{HeaderMap, HeaderValue}};
+use reqwest::{
+    Url,
+    header::{HeaderMap, HeaderValue},
+};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use ssml::Serialize as SsmlSerialize;
-use std::time::{SystemTime, UNIX_EPOCH};
 use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
+use tungstenite::client::IntoClientRequest;
 use uuid::Uuid;
 
 #[allow(clippy::unreadable_literal)]
@@ -42,7 +47,10 @@ fn generate_sec_ms_gec() -> String {
 }
 
 pub fn edgenize(headers: &mut HeaderMap) {
-    headers.insert("Authority", HeaderValue::from_static("speech.platform.bing.com"));
+    headers.insert(
+        "Authority",
+        HeaderValue::from_static("speech.platform.bing.com"),
+    );
     headers.insert(
         "Sec-CH-UA",
         HeaderValue::from_static(
@@ -111,13 +119,7 @@ pub async fn get_audio_bytes(
 
     let futures: Vec<_> = parts
         .into_iter()
-        .map(|part| {
-            fetch_audio_part(
-                part,
-                voice.to_string(),
-                locale.to_string(),
-            )
-        })
+        .map(|part| fetch_audio_part(part, voice.to_string(), locale.to_string()))
         .collect();
 
     let results = futures::future::join_all(futures).await;
@@ -134,11 +136,7 @@ pub async fn get_audio_bytes(
     crate::tts::convert_mp3_to_wav(combined_audio, volume)
 }
 
-async fn fetch_audio_part(
-    part: String,
-    voice: String,
-    locale: String,
-) -> Result<Vec<u8>> {
+async fn fetch_audio_part(part: String, voice: String, locale: String) -> Result<Vec<u8>> {
     let url = Url::parse(&format!(
         "wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1?TrustedClientToken={}&Sec-MS-GEC={}&Sec-MS-GEC-Version={}",
         TRUSTED_CLIENT_TOKEN,
@@ -146,7 +144,6 @@ async fn fetch_audio_part(
         SEC_MS_GEC_VERSION
     ))?;
 
-    use tungstenite::client::IntoClientRequest;
     let mut request = url.to_string().into_client_request().unwrap();
     edgenize(request.headers_mut());
 
@@ -172,14 +169,17 @@ async fn fetch_audio_part(
     let ssml_string = doc.serialize_to_string(&ssml::SerializeOptions::default())?;
 
     ws_stream
-        .send(Message::Text(format!(
-            "X-RequestId:{}\r\n\
+        .send(Message::Text(
+            format!(
+                "X-RequestId:{}\r\n\
             Content-Type:application/ssml+xml\r\n\
             Path:ssml\r\n\r\n\
             {}",
-            Uuid::new_v4().simple(),
-            ssml_string
-        ).into()))
+                Uuid::new_v4().simple(),
+                ssml_string
+            )
+            .into(),
+        ))
         .await?;
 
     let mut audio_data = Vec::new();
