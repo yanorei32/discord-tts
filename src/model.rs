@@ -36,6 +36,7 @@ pub enum TtsServiceConfig {
     Naver(crate::naver::Setting),
     BingSpeech(crate::bing_speech::Setting),
     CoefontTry(crate::coefont_try::Setting),
+    CapCutTTSWrapper(crate::capcutttswrapper::Setting),
     AndroidTTS(crate::android_tts::Setting),
 }
 

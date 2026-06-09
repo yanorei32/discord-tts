@@ -1,6 +1,8 @@
 #![warn(clippy::pedantic)]
 
+mod android_tts;
 mod bing_speech;
+mod capcutttswrapper;
 mod coefont_try;
 mod commands;
 mod db;
@@ -17,7 +19,6 @@ mod voiceroid;
 mod voicevox;
 mod wavsource;
 mod winrttts;
-mod android_tts;
 
 use std::io::Cursor;
 
@@ -38,7 +39,9 @@ use serenity::{
 };
 use songbird::SerenityInit;
 
+use crate::android_tts::AndroidTTS;
 use crate::bing_speech::BingSpeech;
+use crate::capcutttswrapper::CapCutTTSWrapper;
 use crate::coefont_try::CoefontTry;
 use crate::db::{INMEMORY_DB, PERSISTENT_DB};
 use crate::google_translate::GoogleTranslate;
@@ -50,7 +53,6 @@ use crate::tts::TtsServices;
 use crate::voiceroid::Voiceroid;
 use crate::voicevox::Voicevox;
 use crate::winrttts::WinRTTTS;
-use crate::android_tts::AndroidTTS;
 
 struct Bot {
     tts_services: TtsServices,
@@ -198,17 +200,14 @@ impl EventHandler for Bot {
 
         // If the bot is now alone in the voice channel, leave automatically.
         if self.auto_leave_when_alone && left_bot_channel {
-            let is_alone = ctx
-                .cache
-                .guild(guild_id)
-                .is_some_and(|guild| {
-                    guild
-                        .voice_states
-                        .values()
-                        .filter(|voice_state| voice_state.channel_id == bot_channel_id)
-                        .count()
-                        == 1
-                });
+            let is_alone = ctx.cache.guild(guild_id).is_some_and(|guild| {
+                guild
+                    .voice_states
+                    .values()
+                    .filter(|voice_state| voice_state.channel_id == bot_channel_id)
+                    .count()
+                    == 1
+            });
 
             if is_alone {
                 manager.leave(guild_id).await.ok();
@@ -337,7 +336,7 @@ async fn main() {
                     )
                     .await
             }
-            
+
             TtsServiceConfig::MiraeTTS(config) => {
                 tts_services
                     .register(
@@ -394,13 +393,29 @@ async fn main() {
                         Box::new(
                             AndroidTTS::new(config)
                                 .with_context(|| {
-                                    format!("Failed to initialize AndroidTTS backend ({service_id})")
+                                    format!(
+                                        "Failed to initialize AndroidTTS backend ({service_id})"
+                                    )
                                 })
                                 .unwrap(),
                         ),
                     )
                     .await
             }
+            TtsServiceConfig::CapCutTTSWrapper(config) => tts_services
+                .register(
+                    service_id,
+                    Box::new(
+                        CapCutTTSWrapper::new(config)
+                            .with_context(|| {
+                                format!(
+                                    "Failed to initialize CapCutTTSWrapper backend ({service_id})"
+                                )
+                            })
+                            .unwrap(),
+                    ),
+                )
+                .await,
         }
         .with_context(|| format!("Failed to register service {service_id}"))
         .unwrap();
