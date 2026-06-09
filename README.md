@@ -3,6 +3,8 @@
 ## Backends
 - VOICEVOX / AivisSpeech
   - Native VOICEVOX API support
+- OmniVoice
+  - Native OmniVoice API support
 - VOICEROID
   - works with https://github.com/yanorei32/aitalked-server
 - mirae-tts
@@ -21,5 +23,7 @@
   - based on https://github.com/rany2/edge-tts by [@REO2248](https://github.com/REO2248)
 - ⚠ CoeFont Try
   - created by [@REO2248](https://github.com/REO2248)
+- ⚠ CapCut
+  - works with https://github.com/kuwacom/CapCut-TTS
 
 ⚠ Non-official API. No warranty and not supported. Use at your own risk!
