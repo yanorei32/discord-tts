@@ -14,7 +14,7 @@ use reqwest::{
 use serde::Deserialize;
 use tap::Tap;
 
-use crate::tts::{split_long_text, CharacterView, StyleView, TtsService};
+use crate::tts::{CharacterView, StyleView, TtsService, split_long_text};
 
 mod api;
 

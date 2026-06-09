@@ -124,7 +124,10 @@ impl MiraeTTS {
 impl TtsService for MiraeTTS {
     async fn tts(&self, style_id: &str, text: &str) -> Result<Vec<u8>> {
         let api_tts = self.inner.url.clone().tap_mut(|u| {
-            u.path_segments_mut().unwrap().push("api").push("synthesize");
+            u.path_segments_mut()
+                .unwrap()
+                .push("api")
+                .push("synthesize");
         });
 
         let text = if let Some(g2p_url) = &self.inner.g2p_url

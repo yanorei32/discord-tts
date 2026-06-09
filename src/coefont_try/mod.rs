@@ -7,7 +7,7 @@ use serde::Deserialize;
 use crate::tts::{CharacterView, StyleView, TtsService};
 
 mod coefont_tts;
-use coefont_tts::{get_audio_bytes, VOICES};
+use coefont_tts::{VOICES, get_audio_bytes};
 
 fn default_master_volume() -> f32 {
     1.0
@@ -46,11 +46,7 @@ impl TtsService for CoefontTry {
     }
 
     async fn styles(&self) -> Result<Vec<CharacterView>> {
-        let languages = vec![
-            ("ja", "Japanese"),
-            ("en", "English"),
-            ("zh", "Chinese"),
-        ];
+        let languages = vec![("ja", "Japanese"), ("en", "English"), ("zh", "Chinese")];
 
         let mut character_views = Vec::new();
 

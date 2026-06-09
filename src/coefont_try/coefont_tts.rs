@@ -2,7 +2,7 @@ use std::io::Cursor;
 
 use anyhow::{Context, Result};
 use futures::future::join_all;
-use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE, ORIGIN, REFERER, USER_AGENT};
+use reqwest::header::{CONTENT_TYPE, HeaderMap, HeaderValue, ORIGIN, REFERER, USER_AGENT};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone)]
@@ -127,12 +127,10 @@ fn concatenate_wav_files(wav_files: Vec<Vec<u8>>) -> Result<Vec<u8>> {
     let spec = first_reader.spec();
 
     let mut all_samples = Vec::new();
-    
+
     for wav_data in wav_files {
         let mut reader = hound::WavReader::new(Cursor::new(&wav_data))?;
-        let samples: Vec<i16> = reader
-            .samples::<i16>()
-            .collect::<Result<Vec<_>, _>>()?;
+        let samples: Vec<i16> = reader.samples::<i16>().collect::<Result<Vec<_>, _>>()?;
         all_samples.extend(samples);
     }
 

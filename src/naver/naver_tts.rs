@@ -114,7 +114,10 @@ pub async fn get_audio_bytes(
             .append_pair("speed", &speed.to_string());
 
         let mut headers = HeaderMap::new();
-        headers.insert("Referer", HeaderValue::from_static("https://dict.naver.com/"));
+        headers.insert(
+            "Referer",
+            HeaderValue::from_static("https://dict.naver.com/"),
+        );
 
         let client = reqwest::Client::builder()
             .default_headers(headers)

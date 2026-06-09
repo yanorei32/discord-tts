@@ -1,20 +1,21 @@
 use std::borrow::Cow;
 
+use crate::db::{EMOJI_DB, INMEMORY_DB};
 use once_cell::sync::Lazy;
 use regex::Regex;
+use serenity::all::{MessageReferenceKind, MessageType};
 use serenity::{
     cache::Cache,
     http::CacheHttp,
     model::{channel::Message, id::ChannelId},
     prelude::Mentionable,
 };
-use serenity::all::{MessageReferenceKind, MessageType};
-use crate::db::{EMOJI_DB, INMEMORY_DB};
 
 // regex crate's named capture
 #[allow(clippy::invalid_regex)]
 static CHANNEL_MENTION_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"<#(?<id>\d+)>").unwrap());
-static CODEBLOCK_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?sm)```.*?[^\s]+?.*?```").unwrap());
+static CODEBLOCK_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"(?sm)```.*?[^\s]+?.*?```").unwrap());
 static EXTERNAL_EMOJI_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"<a?:\w+:\d+>").unwrap());
 static EMOJI_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r":\w+:").unwrap());
 static URI_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"[A-Za-z][A-Za-z0-9+\-.]*:\S+").unwrap());
@@ -111,11 +112,12 @@ fn append_attachment_notification(
     ret.into()
 }
 
-fn append_forward_notification<'a>(
-    body: &'a str,
-    mes: &Message,
-) -> Cow<'a, str> {
-    if !mes.message_reference.iter().any(|m| m.kind == MessageReferenceKind::Forward) {
+fn append_forward_notification<'a>(body: &'a str, mes: &Message) -> Cow<'a, str> {
+    if !mes
+        .message_reference
+        .iter()
+        .any(|m| m.kind == MessageReferenceKind::Forward)
+    {
         return body.into();
     }
 
@@ -129,10 +131,7 @@ fn append_forward_notification<'a>(
     ret.into()
 }
 
-fn append_new_poll_notification<'a>(
-    body: &'a str,
-    mes: &Message,
-) -> Cow<'a, str> {
+fn append_new_poll_notification<'a>(body: &'a str, mes: &Message) -> Cow<'a, str> {
     let Some(poll) = &mes.poll else {
         return body.into();
     };
@@ -147,10 +146,7 @@ fn append_new_poll_notification<'a>(
     ret.into()
 }
 
-fn append_poll_result_notification<'a>(
-    body: &'a str,
-    mes: &Message,
-) -> Cow<'a, str> {
+fn append_poll_result_notification<'a>(body: &'a str, mes: &Message) -> Cow<'a, str> {
     // serenity doesn't implement POLL_RESULT variant at 0.12.1.
     // Ref: https://github.com/serenity-rs/serenity/issues/2948
     if mes.kind != MessageType::Unknown(46) {
@@ -164,7 +160,11 @@ fn append_poll_result_notification<'a>(
     let mut ret = body.to_string();
     ret.push_str("投票結果が発表されました。");
 
-    if let Some(text) = embed.fields.iter().find(|field| field.name == "victor_answer_text") {
+    if let Some(text) = embed
+        .fields
+        .iter()
+        .find(|field| field.name == "victor_answer_text")
+    {
         ret = format!("{ret}一位、{}", &text.value);
     } else {
         ret.push_str("結論得ず");

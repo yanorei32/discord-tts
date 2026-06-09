@@ -15,15 +15,12 @@ fn default_master_volume() -> f32 {
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Setting {
-
-
     #[serde(default = "default_master_volume")]
     pub master_volume: f32,
 }
 
 #[derive(Debug)]
 struct BingSpeechInner {
-
     master_volume: f32,
 }
 
@@ -36,7 +33,6 @@ impl BingSpeech {
     pub fn new(setting: &Setting) -> Self {
         BingSpeech {
             inner: Arc::new(BingSpeechInner {
-
                 master_volume: setting.master_volume,
             }),
         }

@@ -24,8 +24,6 @@ pub struct Setting {
     #[serde(default = "default_master_volume")]
     pub master_volume: f32,
 
-
-
     #[serde(default = "default_speed")]
     pub speed: i32,
 }
