@@ -38,6 +38,7 @@ pub enum TtsServiceConfig {
     CoefontTry(crate::coefont_try::Setting),
     CapCutTTSWrapper(crate::capcutttswrapper::Setting),
     AndroidTTS(crate::android_tts::Setting),
+    OmniVoice(crate::omnivoice::Setting),
 }
 
 #[derive(Deserialize, Debug)]

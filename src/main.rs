@@ -12,6 +12,7 @@ mod ktts;
 mod mirae_tts;
 mod model;
 mod naver;
+mod omnivoice;
 mod songbird_handler;
 mod timestretch;
 mod tts;
@@ -53,6 +54,7 @@ use crate::tts::TtsServices;
 use crate::voiceroid::Voiceroid;
 use crate::voicevox::Voicevox;
 use crate::winrttts::WinRTTTS;
+use crate::omnivoice::OmniVoice;
 
 struct Bot {
     tts_services: TtsServices,
@@ -395,6 +397,23 @@ async fn main() {
                                 .with_context(|| {
                                     format!(
                                         "Failed to initialize AndroidTTS backend ({service_id})"
+                                    )
+                                })
+                                .unwrap(),
+                        ),
+                    )
+                    .await
+            }
+            TtsServiceConfig::OmniVoice(config) => {
+                tts_services
+                    .register(
+                        service_id,
+                        Box::new(
+                            OmniVoice::new(config)
+                                .await
+                                .with_context(|| {
+                                    format!(
+                                        "Failed to initialize OmniVoice backend ({service_id})"
                                     )
                                 })
                                 .unwrap(),
