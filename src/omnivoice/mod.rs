@@ -193,12 +193,12 @@ impl TtsService for OmniVoice {
             .voices
             .iter()
             .map(|voice| CharacterView {
-                name: voice.name.to_string(),
+                name: voice.name.clone(),
                 policy: "OmniVoice Engine".to_string(),
                 styles: vec![StyleView {
                     icon: vec![],
                     name: "default".to_string(),
-                    id: voice.voice_id.to_string(),
+                    id: voice.voice_id.clone(),
                 }],
             })
             .collect())
