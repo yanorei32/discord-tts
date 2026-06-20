@@ -21,25 +21,12 @@ fn default_master_volume() -> f32 {
     1.0
 }
 
-fn default_speed() -> f32 {
-    1.0
-}
-
-fn default_pitch() -> f32 {
-    1.0
-}
-
 fn default_characters() -> Vec<String> {
     vec![]
 }
 
 fn default_max_chars() -> usize {
     500
-}
-
-#[derive(Deserialize, Debug, Clone)]
-pub struct CharacterConfig {
-    pub name: String,
 }
 
 #[derive(Deserialize, Debug, Clone)]
