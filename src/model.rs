@@ -39,6 +39,7 @@ pub enum TtsServiceConfig {
     CapCutTTSWrapper(crate::capcutttswrapper::Setting),
     AndroidTTS(crate::android_tts::Setting),
     OmniVoice(crate::omnivoice::Setting),
+    SayServer(crate::sayserver::Setting),
 }
 
 #[derive(Deserialize, Debug)]

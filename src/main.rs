@@ -13,6 +13,7 @@ mod mirae_tts;
 mod model;
 mod naver;
 mod omnivoice;
+mod sayserver;
 mod songbird_handler;
 mod timestretch;
 mod tts;
@@ -50,11 +51,12 @@ use crate::ktts::KTTS;
 use crate::mirae_tts::MiraeTTS;
 use crate::model::TtsServiceConfig;
 use crate::naver::Naver;
+use crate::omnivoice::OmniVoice;
+use crate::sayserver::SayServer;
 use crate::tts::TtsServices;
 use crate::voiceroid::Voiceroid;
 use crate::voicevox::Voicevox;
 use crate::winrttts::WinRTTTS;
-use crate::omnivoice::OmniVoice;
 
 struct Bot {
     tts_services: TtsServices,
@@ -412,9 +414,7 @@ async fn main() {
                             OmniVoice::new(config)
                                 .await
                                 .with_context(|| {
-                                    format!(
-                                        "Failed to initialize OmniVoice backend ({service_id})"
-                                    )
+                                    format!("Failed to initialize OmniVoice backend ({service_id})")
                                 })
                                 .unwrap(),
                         ),
@@ -435,6 +435,20 @@ async fn main() {
                     ),
                 )
                 .await,
+            TtsServiceConfig::SayServer(config) => {
+                tts_services
+                    .register(
+                        service_id,
+                        Box::new(
+                            SayServer::new(config)
+                                .with_context(|| {
+                                    format!("Failed to initialize SayServer backend ({service_id})")
+                                })
+                                .unwrap(),
+                        ),
+                    )
+                    .await
+            }
         }
         .with_context(|| format!("Failed to register service {service_id}"))
         .unwrap();

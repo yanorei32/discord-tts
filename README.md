@@ -13,6 +13,8 @@
   - works with https://github.com/yanorei32/libktts-server
 - WinRT
   - works with https://github.com/yanorei32/winrt-tts-server
+- macOS say
+  - works with https://github.com/yanorei32/say-server
 - Android TTS (TextToSpeech API)
   - works with https://github.com/REO2248/android-tts-server
 - ⚠ Google Translate
