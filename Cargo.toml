@@ -38,7 +38,7 @@ symphonia = { version = "0.5.4", features = [
     "pcm",
     "mp3",
 ], default-features = false }
-symphonia-core = { version = "0.5.4" }
+symphonia-core = { version = "0.6.0" }
 structstruck = "0.5.0"
 tap = "1.0.1"
 tokio = { version = "1.37.0", features = [
