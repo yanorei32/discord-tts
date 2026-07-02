@@ -21,7 +21,7 @@ fn default_master_volume() -> f32 {
     1.0
 }
 
-fn default_characters() -> Vec<String> {
+fn default_voices() -> Vec<String> {
     vec![]
 }
 
@@ -36,8 +36,8 @@ pub struct Setting {
     pub headers: HashMap<String, String>,
     #[serde(default = "default_master_volume")]
     pub master_volume: f32,
-    #[serde(default = "default_characters")]
-    pub characters: Vec<String>,
+    #[serde(default = "default_voices")]
+    pub allowed_voices: Vec<String>,
     #[serde(default = "default_max_chars")]
     pub max_chars: usize,
 }
@@ -47,7 +47,8 @@ struct SayServerInner {
     client: reqwest::Client,
     url: reqwest::Url,
     master_volume: f32,
-    characters: Vec<String>,
+    allowed_voices: Vec<String>,
+    voices: Vec<api::Voice>,
     max_chars: usize,
 }
 
@@ -58,7 +59,7 @@ pub struct SayServer {
 }
 
 impl SayServer {
-    pub fn new(setting: &Setting) -> Result<Self> {
+    pub async fn new(setting: &Setting) -> Result<Self> {
         let mut headers = HeaderMap::new();
 
         for (key, value) in &setting.headers {
@@ -68,19 +69,34 @@ impl SayServer {
             );
         }
 
+        let api_voices = setting.url.clone().tap_mut(|u| {
+            u.path_segments_mut().unwrap().push("api").push("voices");
+        });
+
         let client = reqwest::ClientBuilder::new()
             .default_headers(headers)
             .user_agent("discord-tts-sayserver/0.0.0")
             .build()
             .unwrap();
 
+        let voices = client
+            .get(api_voices)
+            .send()
+            .await
+            .context("Failed to get /api/voices")?
+            .error_for_status()
+            .context("Failed to get /api/voices")?;
+
+        let voices = voices.json().await.context("Failed to parse /api/voices")?;
+
         Ok(SayServer {
             inner: Arc::new(SayServerInner {
                 url: setting.url.clone(),
                 master_volume: setting.master_volume,
-                characters: setting.characters.clone(),
+                voices,
                 client,
                 max_chars: setting.max_chars,
+                allowed_voices: setting.allowed_voices.clone(),
             }),
         })
     }
@@ -105,7 +121,7 @@ impl TtsService for SayServer {
         for part in parts {
             let query = api::TtsRequest {
                 text: part,
-                name: style_id.to_string(),
+                voice_id: style_id.to_string(),
             };
 
             let resp = self
@@ -163,11 +179,15 @@ impl TtsService for SayServer {
     async fn styles(&self) -> Result<Vec<CharacterView>> {
         let mut styles = vec![];
 
-        for name in &self.inner.characters {
+        for voice in &self.inner.voices {
+            if !self.inner.allowed_voices.contains(&voice.id) {
+                continue;
+            }
+
             styles.push(StyleView {
                 icon: vec![],
-                name: name.clone(),
-                id: name.clone(),
+                name: voice.name.clone(),
+                id: voice.id.clone(),
             });
         }
 

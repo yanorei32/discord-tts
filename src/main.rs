@@ -441,6 +441,7 @@ async fn main() {
                         service_id,
                         Box::new(
                             SayServer::new(config)
+                                .await
                                 .with_context(|| {
                                     format!("Failed to initialize SayServer backend ({service_id})")
                                 })
