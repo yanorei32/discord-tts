@@ -2,8 +2,8 @@
 
 use rubato::audioadapter_buffers::direct::SequentialSliceOfVecs;
 use rubato::{
-    Async, FixedAsync, Indexing, Resampler, SincInterpolationParameters, SincInterpolationType,
-    WindowFunction,
+    Adjustable, Async, FixedAsync, Indexing, Resampler, SincInterpolationParameters,
+    SincInterpolationType, WindowFunction,
 };
 
 /// Applies time-stretching acceleration to the input audio.
@@ -16,7 +16,7 @@ pub fn apply_time_stretch(
 ) -> Vec<i16> {
     let params = SincInterpolationParameters {
         sinc_len: 256,
-        f_cutoff: 0.95,
+        f_cutoff: Some(0.95),
         oversampling_factor: 256,
         interpolation: SincInterpolationType::Linear,
         window: WindowFunction::BlackmanHarris2,
