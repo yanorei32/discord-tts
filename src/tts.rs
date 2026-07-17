@@ -82,8 +82,8 @@ pub fn split_long_text(text: &str, max_length: usize) -> Vec<String> {
 pub fn convert_mp3_to_wav(mp3_data: Vec<u8>, gain: f32) -> anyhow::Result<Vec<u8>> {
     use std::io::Cursor;
     use symphonia::core::codecs::audio::AudioDecoderOptions;
-    use symphonia::core::formats::TrackType;
     use symphonia::core::formats::FormatOptions;
+    use symphonia::core::formats::TrackType;
     use symphonia::core::formats::probe::Hint;
     use symphonia::core::io::{MediaSourceStream, MediaSourceStreamOptions};
     use symphonia::core::meta::MetadataOptions;
@@ -153,8 +153,7 @@ pub fn convert_mp3_to_wav(mp3_data: Vec<u8>, gain: f32) -> anyhow::Result<Vec<u8
                     wav_writer.write_sample(sample as i16)?;
                 }
             }
-            Err(symphonia::core::errors::Error::DecodeError(_)) => {
-            } // Skip decode errors
+            Err(symphonia::core::errors::Error::DecodeError(_)) => {} // Skip decode errors
             Err(e) => return Err(e.into()),
         }
     }
