@@ -81,12 +81,12 @@ pub fn split_long_text(text: &str, max_length: usize) -> Vec<String> {
 
 pub fn convert_mp3_to_wav(mp3_data: Vec<u8>, gain: f32) -> anyhow::Result<Vec<u8>> {
     use std::io::Cursor;
-    use symphonia::core::audio::{AudioBufferRef, Signal};
-    use symphonia::core::codecs::DecoderOptions;
+    use symphonia::core::codecs::audio::AudioDecoderOptions;
+    use symphonia::core::formats::TrackType;
     use symphonia::core::formats::FormatOptions;
+    use symphonia::core::formats::probe::Hint;
     use symphonia::core::io::{MediaSourceStream, MediaSourceStreamOptions};
     use symphonia::core::meta::MetadataOptions;
-    use symphonia::core::probe::Hint;
 
     let mss = MediaSourceStream::new(
         Box::new(Cursor::new(mp3_data)),
@@ -95,19 +95,22 @@ pub fn convert_mp3_to_wav(mp3_data: Vec<u8>, gain: f32) -> anyhow::Result<Vec<u8
     let mut hint = Hint::new();
     hint.with_extension("mp3");
 
-    let probed = symphonia::default::get_probe().format(
+    let probed = symphonia::default::get_probe().probe(
         &hint,
         mss,
-        &FormatOptions::default(),
-        &MetadataOptions::default(),
+        FormatOptions::default(),
+        MetadataOptions::default(),
     )?;
 
-    let mut format = probed.format;
+    let mut format = probed;
     let track = format
-        .default_track()
-        .ok_or_else(|| anyhow::anyhow!("No track found"))?;
-    let mut decoder =
-        symphonia::default::get_codecs().make(&track.codec_params, &DecoderOptions::default())?;
+        .default_track(TrackType::Audio)
+        .ok_or_else(|| anyhow::anyhow!("No audio track found"))?;
+
+    let mut decoder = symphonia::default::get_codecs().make_audio_decoder(
+        track.codec_params.as_ref().unwrap().audio().unwrap(),
+        &AudioDecoderOptions::default(),
+    )?;
 
     let track_id = track.id;
     let spec = hound::WavSpec {
@@ -122,37 +125,35 @@ pub fn convert_mp3_to_wav(mp3_data: Vec<u8>, gain: f32) -> anyhow::Result<Vec<u8
 
     loop {
         let packet = match format.next_packet() {
-            Ok(packet) => packet,
-            Err(symphonia::core::errors::Error::IoError(_)) => break, // End of stream
+            Ok(Some(packet)) => packet,
+            Ok(None) => break, // End of stream
             Err(e) => return Err(e.into()),
         };
 
-        if packet.track_id() != track_id {
+        if packet.track_id != track_id {
             continue;
         }
 
         match decoder.decode(&packet) {
-            Ok(decoded_packet) => match decoded_packet {
-                AudioBufferRef::F32(buf) => {
-                    for &sample in buf.chan(0) {
-                        let sample = sample * gain * f32::from(i16::MAX);
-                        let sample = sample.min(f32::from(i16::MAX)).max(f32::from(i16::MIN));
+            Ok(decoded) => {
+                // Copy audio samples in interleaved format and process them
+                let num_samples = decoded.samples_interleaved();
+                let mut samples = vec![0f32; num_samples];
+                decoded.copy_to_slice_interleaved(&mut samples);
 
-                        #[allow(clippy::cast_possible_truncation)]
-                        wav_writer.write_sample(sample as i16)?;
-                    }
-                }
-                AudioBufferRef::S16(buf) => {
-                    for &sample in buf.chan(0) {
-                        let sample = f32::from(sample) * gain;
-                        let sample = sample.min(f32::from(i16::MAX)).max(f32::from(i16::MIN));
+                // Process samples (convert to mono i16)
+                for chunk in samples.chunks(decoded.num_planes()) {
 
-                        wav_writer.write_sample(sample)?;
-                    }
+                    // Average channels to mono
+                    #[allow(clippy::cast_precision_loss)]
+                    let mono_sample = chunk.iter().sum::<f32>() / chunk.len() as f32;
+                    let sample = mono_sample * gain * f32::from(i16::MAX);
+                    let sample = sample.min(f32::from(i16::MAX)).max(f32::from(i16::MIN));
+
+                    #[allow(clippy::cast_possible_truncation)]
+                    wav_writer.write_sample(sample as i16)?;
                 }
-                _ => anyhow::bail!("Unsupported audio format"),
-            },
-            Err(symphonia::core::errors::Error::IoError(_)) => break,
+            }
             Err(symphonia::core::errors::Error::DecodeError(_)) => {} // Skip decode errors
             Err(e) => return Err(e.into()),
         }

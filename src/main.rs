@@ -1,4 +1,5 @@
 #![warn(clippy::pedantic)]
+#![allow(clippy::similar_names)]
 
 mod android_tts;
 mod bing_speech;

@@ -1,7 +1,8 @@
 use std::io::{Read, Result, Seek, SeekFrom};
 
 use hound::WavReader;
-use symphonia_core::io::MediaSource;
+// Use symphonia-core 0.5.5 for MediaSource (required by songbird 0.6.0)
+use symphonia_core_0_5::io::MediaSource;
 
 use crate::timestretch::apply_time_stretch;
 
