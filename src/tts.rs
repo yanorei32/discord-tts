@@ -143,7 +143,6 @@ pub fn convert_mp3_to_wav(mp3_data: Vec<u8>, gain: f32) -> anyhow::Result<Vec<u8
 
                 // Process samples (convert to mono i16)
                 for chunk in samples.chunks(decoded.num_planes()) {
-
                     // Average channels to mono
                     #[allow(clippy::cast_precision_loss)]
                     let mono_sample = chunk.iter().sum::<f32>() / chunk.len() as f32;
@@ -154,7 +153,8 @@ pub fn convert_mp3_to_wav(mp3_data: Vec<u8>, gain: f32) -> anyhow::Result<Vec<u8
                     wav_writer.write_sample(sample as i16)?;
                 }
             }
-            Err(symphonia::core::errors::Error::DecodeError(_)) => {} // Skip decode errors
+            Err(symphonia::core::errors::Error::DecodeError(_)) => {
+            } // Skip decode errors
             Err(e) => return Err(e.into()),
         }
     }

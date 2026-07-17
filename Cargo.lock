@@ -815,6 +815,7 @@ dependencies = [
  "songbird",
  "ssml",
  "structstruck",
+ "symphonia 0.5.5",
  "symphonia 0.6.0",
  "symphonia-core 0.5.5",
  "symphonia-core 0.6.0",
@@ -3831,6 +3832,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5773a4c030a19d9bfaa090f49746ff35c75dfddfa700df7a5939d5e076a57039"
 dependencies = [
  "lazy_static",
+ "symphonia-codec-pcm 0.5.5",
  "symphonia-core 0.5.5",
  "symphonia-metadata 0.5.5",
 ]
@@ -3843,7 +3845,7 @@ checksum = "1758d6c853020a7244de03cc3e0185eaea3f58715122422dd3cc7452e6d4c16a"
 dependencies = [
  "lazy_static",
  "symphonia-bundle-mp3",
- "symphonia-codec-pcm",
+ "symphonia-codec-pcm 0.6.0",
  "symphonia-core 0.6.0",
  "symphonia-metadata 0.6.0",
 ]
@@ -3857,6 +3859,16 @@ dependencies = [
  "lazy_static",
  "log",
  "symphonia-core 0.6.0",
+]
+
+[[package]]
+name = "symphonia-codec-pcm"
+version = "0.5.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4e89d716c01541ad3ebe7c91ce4c8d38a7cf266a3f7b2f090b108fb0cb031d95"
+dependencies = [
+ "log",
+ "symphonia-core 0.5.5",
 ]
 
 [[package]]
