@@ -816,7 +816,6 @@ dependencies = [
  "ssml",
  "structstruck",
  "symphonia 0.6.0",
- "symphonia-core 0.5.5",
  "symphonia-core 0.6.0",
  "tap",
  "tokio",
