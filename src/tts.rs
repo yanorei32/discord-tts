@@ -82,6 +82,7 @@ pub fn split_long_text(text: &str, max_length: usize) -> Vec<String> {
 pub fn convert_mp3_to_wav(mp3_data: Vec<u8>, gain: f32) -> anyhow::Result<Vec<u8>> {
     use std::io::Cursor;
     use symphonia::core::codecs::audio::AudioDecoderOptions;
+    use symphonia::core::formats::TrackType;
     use symphonia::core::formats::FormatOptions;
     use symphonia::core::formats::probe::Hint;
     use symphonia::core::io::{MediaSourceStream, MediaSourceStreamOptions};
@@ -101,12 +102,11 @@ pub fn convert_mp3_to_wav(mp3_data: Vec<u8>, gain: f32) -> anyhow::Result<Vec<u8
         MetadataOptions::default(),
     )?;
 
-    use symphonia_core::formats::TrackType;
-
     let mut format = probed;
     let track = format
         .default_track(TrackType::Audio)
         .ok_or_else(|| anyhow::anyhow!("No audio track found"))?;
+
     let mut decoder = symphonia::default::get_codecs().make_audio_decoder(
         track.codec_params.as_ref().unwrap().audio().unwrap(),
         &AudioDecoderOptions::default(),
@@ -143,7 +143,9 @@ pub fn convert_mp3_to_wav(mp3_data: Vec<u8>, gain: f32) -> anyhow::Result<Vec<u8
 
                 // Process samples (convert to mono i16)
                 for chunk in samples.chunks(decoded.num_planes()) {
+
                     // Average channels to mono
+                    #[allow(clippy::cast_precision_loss)]
                     let mono_sample = chunk.iter().sum::<f32>() / chunk.len() as f32;
                     let sample = mono_sample * gain * f32::from(i16::MAX);
                     let sample = sample.min(f32::from(i16::MAX)).max(f32::from(i16::MIN));
