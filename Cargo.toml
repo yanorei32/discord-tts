@@ -41,7 +41,7 @@ symphonia = { version = "0.6.0", features = [
 symphonia-core = { version = "0.6.0" }
 # Songbird 0.6.0 depends on symphonia-core 0.5.5, we need this version for WavSource
 symphonia-core-0-5 = { package = "symphonia-core", version = "0.5.5" }
-symphonia-0-5 = { package = "symphonia", version = "0.5.5", features = [
+symphonia-0-5 = { package = "symphonia", version = "0.6.0", features = [
     "pcm",
 ], default-features = false }
 structstruck = "0.5.0"
