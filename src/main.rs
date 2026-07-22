@@ -20,6 +20,7 @@ mod timestretch;
 mod tts;
 mod voiceroid;
 mod voicevox;
+mod volcengine;
 mod wavsource;
 mod winrttts;
 
@@ -57,6 +58,7 @@ use crate::sayserver::SayServer;
 use crate::tts::TtsServices;
 use crate::voiceroid::Voiceroid;
 use crate::voicevox::Voicevox;
+use crate::volcengine::Volcengine;
 use crate::winrttts::WinRTTTS;
 
 struct Bot {
@@ -445,6 +447,22 @@ async fn main() {
                                 .await
                                 .with_context(|| {
                                     format!("Failed to initialize SayServer backend ({service_id})")
+                                })
+                                .unwrap(),
+                        ),
+                    )
+                    .await
+            }
+            TtsServiceConfig::Volcengine(config) => {
+                tts_services
+                    .register(
+                        service_id,
+                        Box::new(
+                            Volcengine::new(config)
+                                .with_context(|| {
+                                    format!(
+                                        "Failed to initialize Volcengine backend ({service_id})"
+                                    )
                                 })
                                 .unwrap(),
                         ),
