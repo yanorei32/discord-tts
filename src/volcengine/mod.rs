@@ -125,11 +125,17 @@ impl TtsService for Volcengine {
                 .await
                 .context("Failed to post /crx/tts/v1 (body)")?;
 
-            let bin: Vec<u8> = BASE64_STANDARD
-                .decode(resp.audio.data.as_bytes())
-                .context("Failed to parse as base64")?;
+            if let Some(audio) = resp.audio {
+                let bin: Vec<u8> = BASE64_STANDARD
+                    .decode(audio.data.as_bytes())
+                    .context("Failed to parse as base64")?;
 
-            combined_audio.extend_from_slice(&bin);
+                combined_audio.extend_from_slice(&bin);
+            }
+        }
+
+        if combined_audio.is_empty() {
+            return Ok(crate::tts::EMPTY_WAVE.to_vec());
         }
 
         crate::tts::convert_mp3_to_wav(combined_audio, self.inner.master_volume)

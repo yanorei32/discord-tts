@@ -9,7 +9,7 @@ pub struct TtsRequest {
 #[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize)]
 pub struct Response {
-    pub audio: Audio,
+    pub audio: Option<Audio>,
     pub base_resp: BaseResp,
 }
 
