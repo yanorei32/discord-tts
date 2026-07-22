@@ -40,6 +40,7 @@ pub enum TtsServiceConfig {
     AndroidTTS(crate::android_tts::Setting),
     OmniVoice(crate::omnivoice::Setting),
     SayServer(crate::sayserver::Setting),
+    Volcengine(crate::volcengine::Setting),
 }
 
 #[derive(Deserialize, Debug)]

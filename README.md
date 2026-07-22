@@ -27,5 +27,6 @@
   - created by [@REO2248](https://github.com/REO2248)
 - ⚠ CapCut
   - works with https://github.com/kuwacom/CapCut-TTS
+- ⚠ Volcengine Translate
 
 ⚠ Non-official API. No warranty and not supported. Use at your own risk!
