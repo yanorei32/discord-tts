@@ -24,6 +24,10 @@ fn default_headers() -> HashMap<String, String> {
     HashMap::new()
 }
 
+fn default_policy() -> String {
+    "Microsoft Windows利用規約に則り、ご利用ください".to_string()
+}
+
 #[derive(Deserialize, Debug, Clone)]
 pub struct Setting {
     pub url: reqwest::Url,
@@ -36,16 +40,20 @@ pub struct Setting {
 
     #[serde(default = "default_character_volume")]
     pub character_volume: HashMap<String, f32>,
+
+    #[serde(default = "default_policy")]
+    pub policy: String,
 }
 
 #[derive(Debug)]
 struct WinRTTTSInner {
-    registry_base_path: String,
+    registry_base_path: Option<String>,
     client: reqwest::Client,
     url: reqwest::Url,
     voices: Vec<api::Voice>,
     master_volume: f32,
     character_volume: HashMap<String, f32>,
+    policy: String,
 }
 
 #[derive(Clone, Debug)]
@@ -86,23 +94,30 @@ impl WinRTTTS {
             voices.json().await.context("Failed to parse /api/voices")?;
 
         let first_voice = voices.first().context("Failed to get first voice")?;
-        let (registry_base_path, _name) = first_voice
+
+        let registry_base_path = first_voice
             .id
             .rsplit_once('\\')
-            .context("Failed to parse registry path")?;
-        let registry_base_path = registry_base_path.to_string();
+            .map(|(registry_base_path, _name)| Some(registry_base_path.to_string()))
+            .unwrap_or(None);
 
         for voice in &mut voices {
-            let (path, name) = voice
-                .id
-                .rsplit_once('\\')
-                .context("Failed to parse registry path")?;
+            if let Some(registry_base_path) = &registry_base_path {
+                let (path, name) = voice
+                    .id
+                    .rsplit_once('\\')
+                    .context("Registry base path is inconsistent (not exists)")?;
 
-            if registry_base_path != path {
-                anyhow::bail!("Registry base path is not omittable");
+                if registry_base_path != path {
+                    anyhow::bail!("Registry base path is inconsistent (doesn't match)");
+                }
+
+                voice.id = name.to_string();
+            } else {
+                if voice.id.contains('\\') {
+                    anyhow::bail!("Registry base path is inconsistent");
+                }
             }
-
-            voice.id = name.to_string();
         }
 
         Ok(WinRTTTS {
@@ -111,6 +126,7 @@ impl WinRTTTS {
                 url: setting.url.clone(),
                 master_volume: setting.master_volume,
                 character_volume: setting.character_volume.clone(),
+                policy: setting.policy.clone(),
                 voices,
                 client,
             }),
@@ -135,7 +151,12 @@ impl TtsService for WinRTTTS {
         let query = api::TtsRequest {
             audio_volume: self.inner.master_volume * character_volume,
             text: text.to_string(),
-            voice_id: format!("{}\\{}", self.inner.registry_base_path, style_id),
+            voice_id: self
+                .inner
+                .registry_base_path
+                .as_ref()
+                .map(|p| format!("{p}\\{}", style_id))
+                .unwrap_or(style_id.to_string()),
         };
 
         let resp = self
@@ -181,7 +202,7 @@ impl TtsService for WinRTTTS {
             .into_iter()
             .map(|(language, styles)| CharacterView {
                 name: language.clone(),
-                policy: "Microsoft Windows利用規約に則り、ご利用ください".to_string(),
+                policy: self.inner.policy.to_string(),
                 styles,
             })
             .collect())
