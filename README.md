@@ -54,6 +54,10 @@ volumes:
 DISCORD_TOKEN=ush9Zohzie6ahmohsoo6meCh.IThah7.jeephaijiachu8kuWoh0aephe5e
 ```
 
+## Command Reference
+
+https://github.com/yanorei32/discord-tts/wiki/Command-Reference
+
 ## Implemented TTS Backends
 
 - VOICEVOX / AivisSpeech
