@@ -1,0 +1,7 @@
+[default_style]
+service_id = "VOICEVOX"
+style_id = "0"
+
+[tts_services.VOICEVOX.Voicevox]
+url = "http://voicevox:50021"
+max_chars = 240
