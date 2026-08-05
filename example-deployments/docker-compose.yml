@@ -1,0 +1,24 @@
+services:
+  discord-tts:
+    image: ghcr.io/yanorei32/discord-tts:master
+    restart: unless-stopped
+
+    environment:
+      DISCORD_TOKEN: ${DISCORD_TOKEN}
+
+    volumes:
+      - type: bind
+        source: ./discord-tts.tts.toml
+        target: /etc/discord-tts.tts.toml
+        read_only: true
+
+      - type: volume
+        source: data
+        target: /var/discordtts/
+
+  voicevox:
+    image: voicevox/voicevox_engine:cpu-latest
+    restart: unless-stopped
+
+volumes:
+  data:
