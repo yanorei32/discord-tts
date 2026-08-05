@@ -9,7 +9,12 @@ use serenity::{
     model::application::CommandInteraction,
 };
 
-use crate::{DEFAULT_TTS_STYLE, db::PERSISTENT_DB, model::TtsStyle, tts::TtsServices};
+use crate::{
+    DEFAULT_TTS_STYLE,
+    db::PERSISTENT_DB,
+    model::TtsStyle,
+    tts::{CharacterView, TtsServices},
+};
 
 const PAGE_SIZE: usize = 25;
 
@@ -120,34 +125,39 @@ pub async fn create_modal(
 
     let mut current_character_items = vec![];
 
+    let mut current_style_items = vec![];
+
     let mut current_page_id = String::new();
 
     for (service, characters) in &styles {
-        if characters.len() <= PAGE_SIZE {
-            let first_style_id = &characters.first().unwrap().styles.first().unwrap().id;
-            let transition_target_id = format!("{service}_!DISCORDTTS!_{first_style_id}");
+        let small: Vec<&CharacterView> = characters
+            .iter()
+            .filter(|character| character.styles.len() <= PAGE_SIZE)
+            .collect();
+        let big: Vec<&CharacterView> = characters
+            .iter()
+            .filter(|character| character.styles.len() > PAGE_SIZE)
+            .collect();
 
-            pages.push((service.clone(), transition_target_id.clone()));
+        let page_count = small.len().div_ceil(PAGE_SIZE)
+            + big
+                .iter()
+                .map(|character| character.styles.len().div_ceil(PAGE_SIZE))
+                .sum::<usize>();
+        let mut page_index = 0;
 
-            if service == &voice_setting.service_id {
-                current_page_id = transition_target_id;
-                current_character_items.clone_from(characters);
-            }
-
-            continue;
-        }
-
-        let page_count = characters.len().div_ceil(PAGE_SIZE);
-        for (page_index, page_characters) in characters.chunks(PAGE_SIZE).enumerate() {
-            let page_index = page_index + 1;
-
+        for page_characters in small.chunks(PAGE_SIZE) {
+            page_index += 1;
             let first_style_id = &page_characters.first().unwrap().styles.first().unwrap().id;
             let transition_target_id = format!("{service}_!DISCORDTTS!_{first_style_id}");
 
-            pages.push((
-                format!("{service} ({page_index}/{page_count})"),
-                transition_target_id.clone(),
-            ));
+            let display = if page_count == 1 {
+                service.clone()
+            } else {
+                format!("{service} ({page_index}/{page_count})")
+            };
+
+            pages.push((display, transition_target_id.clone()));
 
             if service == &voice_setting.service_id
                 && page_characters
@@ -156,14 +166,47 @@ pub async fn create_modal(
                     .any(|style| style.id == voice_setting.style_id)
             {
                 current_page_id = transition_target_id;
-                current_character_items = page_characters.to_vec();
+                current_character_items = page_characters.iter().map(|c| (*c).clone()).collect();
+
+                current_style_items = page_characters
+                    .iter()
+                    .find(|character| {
+                        character
+                            .styles
+                            .iter()
+                            .any(|style| style.id == voice_setting.style_id)
+                    })
+                    .map(|character| character.styles.clone())
+                    .unwrap_or_default();
+            }
+        }
+
+        for character in big {
+            for style_chunk in character.styles.chunks(PAGE_SIZE) {
+                page_index += 1;
+                let first_style_id = &style_chunk.first().unwrap().id;
+                let transition_target_id = format!("{service}_!DISCORDTTS!_{first_style_id}");
+
+                pages.push((
+                    format!("{service} ({page_index}/{page_count})"),
+                    transition_target_id.clone(),
+                ));
+
+                if service == &voice_setting.service_id
+                    && style_chunk
+                        .iter()
+                        .any(|style| style.id == voice_setting.style_id)
+                {
+                    current_page_id = transition_target_id;
+                    current_character_items = vec![(*character).clone()];
+                    current_style_items = style_chunk.to_vec();
+                }
             }
         }
     }
 
     let mut characters = vec![];
 
-    let mut current_style_items = vec![];
     let mut current_character_id = String::new();
 
     for character in current_character_items {
@@ -179,7 +222,6 @@ pub async fn create_modal(
             .any(|style| style.id == voice_setting.style_id)
         {
             current_character_id = transition_target_id;
-            current_style_items = character.styles;
         }
     }
 
