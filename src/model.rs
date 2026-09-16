@@ -1,9 +1,9 @@
-use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 // use once_cell::sync::Lazy;
 use anyhow::{Context, Result};
 use clap::Parser;
+use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
 // pub static CONFIG: Lazy<Config> =
@@ -46,7 +46,7 @@ pub enum TtsServiceConfig {
 #[derive(Deserialize, Debug)]
 pub struct TtsConfig {
     pub default_style: TtsStyle,
-    pub tts_services: HashMap<String, TtsServiceConfig>,
+    pub tts_services: IndexMap<String, TtsServiceConfig>,
     #[serde(default)]
     pub timestretch: Option<TimeStretchConfig>,
     #[serde(default)]

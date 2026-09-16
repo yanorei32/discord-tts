@@ -5,6 +5,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use derivative::Derivative;
 use tokio::sync::RwLock;
+use indexmap::IndexMap;
 
 #[derive(Clone, Debug)]
 pub struct StyleView {
@@ -221,7 +222,7 @@ pub trait TtsService: std::fmt::Debug + Send + Sync {
 #[derivative(Debug)]
 struct TtsServicesInner {
     #[allow(clippy::type_complexity)]
-    services: RwLock<HashMap<String, (Box<dyn TtsService>, Vec<CharacterView>)>>,
+    services: RwLock<IndexMap<String, (Box<dyn TtsService>, Vec<CharacterView>)>>,
 }
 
 #[derive(Clone, Debug)]
@@ -233,15 +234,15 @@ impl TtsServices {
     pub fn new() -> Self {
         Self {
             inner: Arc::new(TtsServicesInner {
-                services: RwLock::new(HashMap::new()),
+                services: RwLock::new(IndexMap::new()),
             }),
         }
     }
 
-    pub async fn styles(&self) -> HashMap<String, Vec<CharacterView>> {
+    pub async fn styles(&self) -> IndexMap<String, Vec<CharacterView>> {
         let services = self.inner.services.read().await;
 
-        let mut styles = HashMap::new();
+        let mut styles = IndexMap::new();
 
         for (id, (_service, service_styles)) in services.iter() {
             styles.insert(id.clone(), service_styles.clone());
