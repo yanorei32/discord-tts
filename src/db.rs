@@ -8,7 +8,7 @@ use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use serenity::model::prelude::{ChannelId, GuildId, UserId};
 
-use crate::model::TtsStyle;
+use tts_bot_core::model::TtsStyle;
 
 pub static PERSISTENT_DB: Lazy<PersistentDB> = Lazy::new(|| {
     PersistentDB::new(&crate::CLI_OPTIONS.get().unwrap().persistent_path)

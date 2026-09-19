@@ -9,7 +9,8 @@ use serenity::{
     model::application::CommandInteraction,
 };
 
-use crate::{DEFAULT_TTS_STYLE, db::PERSISTENT_DB, model::TtsStyle, tts::TtsServices};
+use crate::{DEFAULT_TTS_STYLE, db::PERSISTENT_DB};
+use tts_bot_core::{model::TtsStyle, tts::TtsServices};
 
 const PAGE_SIZE: usize = 25;
 

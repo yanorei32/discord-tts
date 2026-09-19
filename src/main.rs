@@ -1,28 +1,12 @@
 #![warn(clippy::pedantic)]
 #![allow(clippy::similar_names)]
 
-mod android_tts;
-mod bing_speech;
-mod capcutttswrapper;
-mod coefont_try;
 mod commands;
 mod db;
 mod filter;
-mod google_translate;
-mod ktts;
-mod mirae_tts;
 mod model;
-mod naver;
-mod omnivoice;
-mod sayserver;
 mod songbird_handler;
-mod timestretch;
-mod tts;
-mod voiceroid;
-mod voicevox;
-mod volcengine;
 mod wavsource;
-mod winrttts;
 
 use std::io::Cursor;
 
@@ -43,28 +27,29 @@ use serenity::{
 };
 use songbird::SerenityInit;
 
-use crate::android_tts::AndroidTTS;
-use crate::bing_speech::BingSpeech;
-use crate::capcutttswrapper::CapCutTTSWrapper;
-use crate::coefont_try::CoefontTry;
+use tts_bot_core::android_tts::AndroidTTS;
+use tts_bot_core::bing_speech::BingSpeech;
+use tts_bot_core::capcutttswrapper::CapCutTTSWrapper;
+use tts_bot_core::coefont_try::CoefontTry;
+use tts_bot_core::google_translate::GoogleTranslate;
+use tts_bot_core::ktts::KTTS;
+use tts_bot_core::mirae_tts::MiraeTTS;
+use tts_bot_core::model::TtsServiceConfig;
+use tts_bot_core::naver::Naver;
+use tts_bot_core::omnivoice::OmniVoice;
+use tts_bot_core::sayserver::SayServer;
+use tts_bot_core::tts::TtsServices;
+use tts_bot_core::voiceroid::Voiceroid;
+use tts_bot_core::voicevox::Voicevox;
+use tts_bot_core::volcengine::Volcengine;
+use tts_bot_core::winrttts::WinRTTTS;
+
 use crate::db::{INMEMORY_DB, PERSISTENT_DB};
-use crate::google_translate::GoogleTranslate;
-use crate::ktts::KTTS;
-use crate::mirae_tts::MiraeTTS;
-use crate::model::TtsServiceConfig;
-use crate::naver::Naver;
-use crate::omnivoice::OmniVoice;
-use crate::sayserver::SayServer;
-use crate::tts::TtsServices;
-use crate::voiceroid::Voiceroid;
-use crate::voicevox::Voicevox;
-use crate::volcengine::Volcengine;
-use crate::winrttts::WinRTTTS;
 
 struct Bot {
     tts_services: TtsServices,
     prefix: String,
-    timestretch_config: model::TimeStretchConfig,
+    timestretch_config: tts_bot_core::model::TimeStretchConfig,
     auto_leave_when_alone: bool,
 }
 
@@ -275,7 +260,7 @@ impl EventHandler for Bot {
     }
 }
 
-static DEFAULT_TTS_STYLE: OnceCell<model::TtsStyle> = OnceCell::new();
+static DEFAULT_TTS_STYLE: OnceCell<tts_bot_core::model::TtsStyle> = OnceCell::new();
 static CLI_OPTIONS: OnceCell<model::Cli> = OnceCell::new();
 
 #[allow(clippy::too_many_lines)]
@@ -290,7 +275,7 @@ async fn main() {
 
     let cli = CLI_OPTIONS.get().unwrap();
 
-    let tts_config = model::TtsConfig::new(&cli.tts_config_path).unwrap();
+    let tts_config = tts_bot_core::model::TtsConfig::new(&cli.tts_config_path).unwrap();
 
     DEFAULT_TTS_STYLE
         .set(tts_config.default_style.clone())
@@ -480,14 +465,13 @@ async fn main() {
         | GatewayIntents::MESSAGE_CONTENT;
 
     let timestretch_config = tts_config.timestretch.unwrap_or_default();
-    let auto_leave_when_alone = tts_config.auto_leave_when_alone;
 
     let mut client = Client::builder(&cli.discord_token, intents)
         .event_handler(Bot {
             tts_services,
             prefix: cli.command_prefix.clone().unwrap_or_default(),
             timestretch_config,
-            auto_leave_when_alone,
+            auto_leave_when_alone: cli.auto_leave_when_alone,
         })
         .register_songbird()
         .await

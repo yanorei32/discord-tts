@@ -4,7 +4,7 @@ use hound::WavReader;
 // Use symphonia-core 0.5.5 for MediaSource (required by songbird 0.6.0)
 use symphonia_core_0_5::io::MediaSource;
 
-use crate::timestretch::apply_time_stretch;
+use tts_bot_core::timestretch::apply_time_stretch;
 
 pub struct WavSource<'a> {
     iterator: Box<dyn Iterator<Item = u8> + 'a + Send + Sync>,
@@ -22,7 +22,7 @@ fn completion_2x(cum: &mut i16, v: i16) -> Option<[i16; 2]> {
 impl WavSource<'_> {
     pub fn new<R: Seek + Read>(
         reader: &mut R,
-        config: &crate::model::TimeStretchConfig,
+        config: &tts_bot_core::model::TimeStretchConfig,
     ) -> (Self, u32) {
         let mut wave = WavReader::new(reader).unwrap();
         let data: Vec<i16> = wave.samples().map(|v| v.unwrap()).collect();
