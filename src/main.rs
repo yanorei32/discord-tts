@@ -10,7 +10,6 @@ mod wavsource;
 
 use std::io::Cursor;
 
-use anyhow::Context as _;
 use clap::Parser;
 use once_cell::sync::OnceCell;
 use serenity::{
@@ -27,22 +26,7 @@ use serenity::{
 };
 use songbird::SerenityInit;
 
-use tts_bot_core::android_tts::AndroidTTS;
-use tts_bot_core::bing_speech::BingSpeech;
-use tts_bot_core::capcutttswrapper::CapCutTTSWrapper;
-use tts_bot_core::coefont_try::CoefontTry;
-use tts_bot_core::google_translate::GoogleTranslate;
-use tts_bot_core::ktts::KTTS;
-use tts_bot_core::mirae_tts::MiraeTTS;
-use tts_bot_core::model::TtsServiceConfig;
-use tts_bot_core::naver::Naver;
-use tts_bot_core::omnivoice::OmniVoice;
-use tts_bot_core::sayserver::SayServer;
 use tts_bot_core::tts::TtsServices;
-use tts_bot_core::voiceroid::Voiceroid;
-use tts_bot_core::voicevox::Voicevox;
-use tts_bot_core::volcengine::Volcengine;
-use tts_bot_core::winrttts::WinRTTTS;
 
 use crate::db::{INMEMORY_DB, PERSISTENT_DB};
 
@@ -282,182 +266,7 @@ async fn main() {
         .unwrap();
 
     let tts_services = TtsServices::new();
-
-    for (service_id, service) in &tts_config.tts_services {
-        match service {
-            TtsServiceConfig::Voiceroid(config) => {
-                tts_services
-                    .register(
-                        service_id,
-                        Box::new(
-                            Voiceroid::new(config)
-                                .await
-                                .with_context(|| {
-                                    format!("Failed to initialize VOICEROID backend ({service_id})")
-                                })
-                                .unwrap(),
-                        ),
-                    )
-                    .await
-            }
-            TtsServiceConfig::Voicevox(config) => {
-                tts_services
-                    .register(
-                        service_id,
-                        Box::new(
-                            Voicevox::new(config)
-                                .with_context(|| {
-                                    format!("Failed to initialize VOICEVOX backend ({service_id})")
-                                })
-                                .unwrap(),
-                        ),
-                    )
-                    .await
-            }
-            TtsServiceConfig::KTTS(config) => {
-                tts_services
-                    .register(
-                        service_id,
-                        Box::new(
-                            KTTS::new(config)
-                                .with_context(|| {
-                                    format!("Failed to initialize KTTS backend ({service_id})")
-                                })
-                                .unwrap(),
-                        ),
-                    )
-                    .await
-            }
-
-            TtsServiceConfig::MiraeTTS(config) => {
-                tts_services
-                    .register(
-                        service_id,
-                        Box::new(
-                            MiraeTTS::new(config)
-                                .with_context(|| {
-                                    format!("Failed to initialize MiraeTTS backend ({service_id})")
-                                })
-                                .unwrap(),
-                        ),
-                    )
-                    .await
-            }
-            TtsServiceConfig::WinRTTTS(config) => {
-                tts_services
-                    .register(
-                        service_id,
-                        Box::new(
-                            WinRTTTS::new(config)
-                                .await
-                                .with_context(|| {
-                                    format!("Failed to initialize WinRTTTS backend ({service_id})")
-                                })
-                                .unwrap(),
-                        ),
-                    )
-                    .await
-            }
-            TtsServiceConfig::GoogleTranslate(config) => {
-                tts_services
-                    .register(service_id, Box::new(GoogleTranslate::new(config)))
-                    .await
-            }
-            TtsServiceConfig::Naver(config) => {
-                tts_services
-                    .register(service_id, Box::new(Naver::new(config)))
-                    .await
-            }
-            TtsServiceConfig::BingSpeech(config) => {
-                tts_services
-                    .register(service_id, Box::new(BingSpeech::new(config)))
-                    .await
-            }
-            TtsServiceConfig::CoefontTry(config) => {
-                tts_services
-                    .register(service_id, Box::new(CoefontTry::new(config)))
-                    .await
-            }
-            TtsServiceConfig::AndroidTTS(config) => {
-                tts_services
-                    .register(
-                        service_id,
-                        Box::new(
-                            AndroidTTS::new(config)
-                                .with_context(|| {
-                                    format!(
-                                        "Failed to initialize AndroidTTS backend ({service_id})"
-                                    )
-                                })
-                                .unwrap(),
-                        ),
-                    )
-                    .await
-            }
-            TtsServiceConfig::OmniVoice(config) => {
-                tts_services
-                    .register(
-                        service_id,
-                        Box::new(
-                            OmniVoice::new(config)
-                                .await
-                                .with_context(|| {
-                                    format!("Failed to initialize OmniVoice backend ({service_id})")
-                                })
-                                .unwrap(),
-                        ),
-                    )
-                    .await
-            }
-            TtsServiceConfig::CapCutTTSWrapper(config) => tts_services
-                .register(
-                    service_id,
-                    Box::new(
-                        CapCutTTSWrapper::new(config)
-                            .with_context(|| {
-                                format!(
-                                    "Failed to initialize CapCutTTSWrapper backend ({service_id})"
-                                )
-                            })
-                            .unwrap(),
-                    ),
-                )
-                .await,
-            TtsServiceConfig::SayServer(config) => {
-                tts_services
-                    .register(
-                        service_id,
-                        Box::new(
-                            SayServer::new(config)
-                                .await
-                                .with_context(|| {
-                                    format!("Failed to initialize SayServer backend ({service_id})")
-                                })
-                                .unwrap(),
-                        ),
-                    )
-                    .await
-            }
-            TtsServiceConfig::Volcengine(config) => {
-                tts_services
-                    .register(
-                        service_id,
-                        Box::new(
-                            Volcengine::new(config)
-                                .with_context(|| {
-                                    format!(
-                                        "Failed to initialize Volcengine backend ({service_id})"
-                                    )
-                                })
-                                .unwrap(),
-                        ),
-                    )
-                    .await
-            }
-        }
-        .with_context(|| format!("Failed to register service {service_id}"))
-        .unwrap();
-    }
+    tts_services.initialize_by_config(&tts_config.tts_services).await.unwrap();
 
     let intents = GatewayIntents::GUILDS
         | GatewayIntents::GUILD_VOICE_STATES
