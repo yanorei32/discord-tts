@@ -802,41 +802,19 @@ name = "discord-tts"
 version = "0.25.1"
 dependencies = [
  "anyhow",
- "async-trait",
- "base64 0.23.1",
- "bytes",
  "clap",
- "derivative",
- "envy",
- "futures",
- "hex",
  "hound",
- "indexmap",
- "json",
  "once_cell",
  "regex",
- "reqwest 0.13.5",
- "rubato 5.0.0",
  "rustls 0.23.45",
  "serde",
  "serde_json",
  "serenity",
- "sha2 0.11.0",
  "songbird",
- "structstruck",
- "symphonia 0.5.5",
- "symphonia 0.6.1",
  "symphonia-core 0.5.5",
- "symphonia-core 0.6.1",
- "tap",
  "tokio",
- "tokio-tungstenite 0.30.0",
- "toml",
- "tracing",
  "tracing-subscriber",
  "tts-bot-core",
- "tungstenite 0.30.0",
- "uuid",
 ]
 
 [[package]]
@@ -965,15 +943,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.119",
-]
-
-[[package]]
-name = "envy"
-version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f47e0157f2cb54f5ae1bd371b30a2ae4311e1c028f575cd4e81de7353215965"
-dependencies = [
- "serde",
 ]
 
 [[package]]
@@ -3891,7 +3860,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5773a4c030a19d9bfaa090f49746ff35c75dfddfa700df7a5939d5e076a57039"
 dependencies = [
  "lazy_static",
- "symphonia-codec-pcm 0.5.5",
  "symphonia-core 0.5.5",
  "symphonia-metadata 0.5.5",
 ]
@@ -3904,7 +3872,7 @@ checksum = "a7edef6a96b696d4e0cab5ee9ebb7ca155ed95f30a6b45bbb8b97d2727f02424"
 dependencies = [
  "lazy_static",
  "symphonia-bundle-mp3",
- "symphonia-codec-pcm 0.6.1",
+ "symphonia-codec-pcm",
  "symphonia-core 0.6.1",
  "symphonia-metadata 0.6.1",
 ]
@@ -3918,16 +3886,6 @@ dependencies = [
  "lazy_static",
  "log",
  "symphonia-core 0.6.1",
-]
-
-[[package]]
-name = "symphonia-codec-pcm"
-version = "0.5.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4e89d716c01541ad3ebe7c91ce4c8d38a7cf266a3f7b2f090b108fb0cb031d95"
-dependencies = [
- "log",
- "symphonia-core 0.5.5",
 ]
 
 [[package]]
@@ -4256,12 +4214,8 @@ checksum = "17a073bfed563fa236697a068031408a93cd9522e08abf9933ead3e73411bd71"
 dependencies = [
  "futures-util",
  "log",
- "rustls 0.23.45",
- "rustls-pki-types",
  "tokio",
- "tokio-rustls 0.26.5",
  "tungstenite 0.30.0",
- "webpki-roots 0.26.11",
 ]
 
 [[package]]
@@ -4579,8 +4533,6 @@ dependencies = [
  "httparse",
  "log",
  "rand 0.10.2",
- "rustls 0.23.45",
- "rustls-pki-types",
  "sha1 0.11.0",
  "thiserror 2.0.20",
 ]
