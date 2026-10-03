@@ -64,7 +64,7 @@ https://github.com/yanorei32/discord-tts/wiki/Command-Reference
   - Native VOICEVOX API support
 - OmniVoice
   - Native OmniVoice API support
-- VOICEROID
+- VOICEROID2 / GynoidTalk
   - works with https://github.com/yanorei32/aitalked-server
 - mirae-tts
   - works with https://github.com/yanorei32/mirae-tts
