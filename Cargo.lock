@@ -799,7 +799,7 @@ dependencies = [
 
 [[package]]
 name = "discord-tts"
-version = "0.25.1"
+version = "0.26.0"
 dependencies = [
  "anyhow",
  "clap",
