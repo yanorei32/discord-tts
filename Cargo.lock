@@ -4463,7 +4463,8 @@ checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 
 [[package]]
 name = "tts-bot-core"
-version = "0.1.0"
+version = "0.0.0"
+source = "git+https://github.com/yanorei32/tts-bot-core?rev=683554cee0124057e62cc3c6ff8f65cb4be23210#683554cee0124057e62cc3c6ff8f65cb4be23210"
 dependencies = [
  "anyhow",
  "async-trait",
