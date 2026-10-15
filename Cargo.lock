@@ -699,7 +699,7 @@ dependencies = [
  "p256",
  "rand 0.8.8",
  "scrypt",
- "sha2 0.10.9",
+ "sha2",
  "subtle",
  "thiserror 2.0.20",
  "tracing",
@@ -879,7 +879,7 @@ dependencies = [
  "ed25519",
  "rand_core 0.6.4",
  "serde",
- "sha2 0.10.9",
+ "sha2",
  "subtle",
  "zeroize",
 ]
@@ -1446,7 +1446,7 @@ dependencies = [
  "rand_chacha 0.3.1",
  "rand_core 0.10.1",
  "rand_core 0.6.4",
- "sha2 0.10.9",
+ "sha2",
  "subtle",
  "x25519-dalek",
  "zeroize",
@@ -2374,7 +2374,7 @@ dependencies = [
  "rand 0.8.8",
  "rand_chacha 0.3.1",
  "serde",
- "sha2 0.10.9",
+ "sha2",
  "thiserror 2.0.20",
  "tls_codec",
 ]
@@ -2422,7 +2422,7 @@ dependencies = [
  "ecdsa",
  "elliptic-curve",
  "primeorder",
- "sha2 0.10.9",
+ "sha2",
 ]
 
 [[package]]
@@ -3313,7 +3313,7 @@ checksum = "0516a385866c09368f0b5bcd1caff3366aace790fcd46e2bb032697bb172fd1f"
 dependencies = [
  "pbkdf2",
  "salsa20",
- "sha2 0.10.9",
+ "sha2",
 ]
 
 [[package]]
@@ -3566,17 +3566,6 @@ dependencies = [
  "cfg-if",
  "cpufeatures 0.2.17",
  "digest 0.10.7",
-]
-
-[[package]]
-name = "sha2"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "446ba717509524cb3f22f17ecc096f10f4822d76ab5c0b9822c5f9c284e825f4"
-dependencies = [
- "cfg-if",
- "cpufeatures 0.3.1",
- "digest 0.11.3",
 ]
 
 [[package]]
@@ -4226,7 +4215,11 @@ checksum = "17a073bfed563fa236697a068031408a93cd9522e08abf9933ead3e73411bd71"
 dependencies = [
  "futures-util",
  "log",
+ "rustls 0.23.45",
+ "rustls-native-certs",
+ "rustls-pki-types",
  "tokio",
+ "tokio-rustls 0.26.5",
  "tungstenite 0.30.0",
 ]
 
@@ -4464,7 +4457,7 @@ checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 [[package]]
 name = "tts-bot-core"
 version = "0.0.0"
-source = "git+https://github.com/yanorei32/tts-bot-core?rev=683554cee0124057e62cc3c6ff8f65cb4be23210#683554cee0124057e62cc3c6ff8f65cb4be23210"
+source = "git+https://github.com/yanorei32/tts-bot-core?rev=fe2cb845754f7f4933832ef5ecee29b3e1f2bf36#fe2cb845754f7f4933832ef5ecee29b3e1f2bf36"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4479,7 +4472,6 @@ dependencies = [
  "reqwest 0.13.5",
  "rubato 5.0.0",
  "serde",
- "sha2 0.11.0",
  "ssml",
  "structstruck",
  "symphonia 0.6.1",
@@ -4546,6 +4538,8 @@ dependencies = [
  "httparse",
  "log",
  "rand 0.10.2",
+ "rustls 0.23.45",
+ "rustls-pki-types",
  "sha1 0.11.0",
  "thiserror 2.0.20",
 ]
