@@ -39,7 +39,8 @@ tracing-subscriber = "0.3.18"
 hound = "3.5.1"
 anyhow = "1.0.100"
 clap = { version = "4.5.48", features = ["derive", "env"] }
-tts-bot-core = { git = "https://github.com/yanorei32/tts-bot-core", rev = "fe2cb845754f7f4933832ef5ecee29b3e1f2bf36" }
+tts-bot-core = { git = "https://github.com/yanorei32/tts-bot-core", rev = "a3e5fbbf96bc5316dbf6620d6726d3adb735297d" }
+# tts-bot-core = { path = "../tts-bot-core" }
 
 [profile.release]
 strip = true
