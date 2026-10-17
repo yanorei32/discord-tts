@@ -36,13 +36,25 @@ pub async fn run(ctx: &Context, interaction: CommandInteraction, tts_services: &
         .unwrap();
 }
 
+fn encode(service: &str, style: &str, g2p: Option<&str>) -> String {
+    match g2p {
+        Some(id) => format!("{service}_!DISCORDTTS!_{style}_!G2P!_{id}"),
+        None => format!("{service}_!DISCORDTTS!_{style}"),
+    }
+}
+
 fn parse_tts_style(s: &str) -> TtsStyle {
-    let (service_id, style_id) = s
+    let (head, g2p) = match s.split_once("_!G2P!_") {
+        Some((head, g2p)) => (head, Some(g2p.to_string())),
+        None => (s, None),
+    };
+    let (service_id, style_id) = head
         .split_once("_!DISCORDTTS!_")
         .expect("UNKNOWN TTS TYLE FORMAT");
     TtsStyle {
         service_id: service_id.to_string(),
         style_id: style_id.to_string(),
+        g2p,
     }
 }
 
@@ -52,7 +64,8 @@ pub async fn update(ctx: &Context, interaction: ComponentInteraction, tts_servic
             custom_id, kind, ..
         } if custom_id == "page_selector"
             || custom_id == "character_selector"
-            || custom_id == "style_selector" =>
+            || custom_id == "style_selector"
+            || custom_id == "g2p_selector" =>
         {
             let ComponentInteractionDataKind::StringSelect { values } = kind else {
                 unreachable!("Illegal style_selector call");
@@ -116,6 +129,16 @@ pub async fn create_modal(
         .iter()
         .find(|style| style.id == voice_setting.style_id)
         .unwrap();
+
+    let g2p_matches = tts_services
+        .g2p_choices(&voice_setting.service_id, &voice_setting.style_id)
+        .await;
+    // 保存された選択が使えない場合は、そのスタイルで使える最初の G2P をデフォルトにする。
+    let active_g2p = voice_setting
+        .g2p
+        .as_deref()
+        .filter(|id| g2p_matches.iter().any(|(engine_id, _)| engine_id == id))
+        .or_else(|| g2p_matches.first().map(|(engine_id, _)| engine_id.as_str()));
 
     let mut pages = vec![];
 
@@ -188,7 +211,7 @@ pub async fn create_modal(
 
     for style in current_style_items {
         let style_id = &style.id;
-        let transition_target_id = format!("{}_!DISCORDTTS!_{style_id}", voice_setting.service_id);
+        let transition_target_id = encode(&voice_setting.service_id, style_id, active_g2p);
 
         styles.push((style.name.clone(), transition_target_id.clone()));
     }
@@ -233,9 +256,10 @@ pub async fn create_modal(
 
     let character_unselectable = character_options.len() <= 1;
 
-    let apply_target_id = format!(
-        "{}_!DISCORDTTS!_{}",
-        voice_setting.service_id, voice_setting.style_id
+    let apply_target_id = encode(
+        &voice_setting.service_id,
+        &voice_setting.style_id,
+        active_g2p,
     );
 
     let style_options: Vec<_> = styles
@@ -248,7 +272,36 @@ pub async fn create_modal(
 
     let style_unselectable = style_options.len() <= 1;
 
-    core.components(vec![
+    let g2p_menu = if g2p_matches.is_empty() {
+        None
+    } else {
+        let mut options = vec![
+            CreateSelectMenuOption::new(
+                "None",
+                encode(&voice_setting.service_id, &voice_setting.style_id, None),
+            )
+            .default_selection(active_g2p.is_none()),
+        ];
+        for (id, friendly_name) in &g2p_matches {
+            options.push(
+                CreateSelectMenuOption::new(
+                    friendly_name.as_str(),
+                    encode(
+                        &voice_setting.service_id,
+                        &voice_setting.style_id,
+                        Some(id.as_str()),
+                    ),
+                )
+                .default_selection(active_g2p == Some(id.as_str())),
+            );
+        }
+        Some(CreateActionRow::SelectMenu(CreateSelectMenu::new(
+            "g2p_selector",
+            CreateSelectMenuKind::String { options },
+        )))
+    };
+
+    let mut rows = vec![
         CreateActionRow::SelectMenu(
             CreateSelectMenu::new(
                 "page_selector",
@@ -276,8 +329,12 @@ pub async fn create_modal(
             )
             .disabled(style_unselectable),
         ),
-        CreateActionRow::Buttons(vec![
-            CreateButton::new(format!("apply_{apply_target_id}")).label("Apply"),
-        ]),
-    ])
+    ];
+    if let Some(menu) = g2p_menu {
+        rows.push(menu);
+    }
+    rows.push(CreateActionRow::Buttons(vec![
+        CreateButton::new(format!("apply_{apply_target_id}")).label("Apply"),
+    ]));
+    core.components(rows)
 }
