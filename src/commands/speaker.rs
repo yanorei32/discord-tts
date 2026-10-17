@@ -133,10 +133,12 @@ pub async fn create_modal(
     let g2p_matches = tts_services
         .g2p_choices(&voice_setting.service_id, &voice_setting.style_id)
         .await;
+    // 保存された選択が使えない場合は、そのスタイルで使える最初の G2P をデフォルトにする。
     let active_g2p = voice_setting
         .g2p
         .as_deref()
-        .filter(|id| g2p_matches.iter().any(|(engine_id, _)| engine_id == id));
+        .filter(|id| g2p_matches.iter().any(|(engine_id, _)| engine_id == id))
+        .or_else(|| g2p_matches.first().map(|(engine_id, _)| engine_id.as_str()));
 
     let mut pages = vec![];
 
