@@ -88,7 +88,12 @@ impl EventHandler for Bot {
 
         let wav = match self
             .tts_services
-            .tts(&speaker.service_id, &speaker.style_id, &content)
+            .tts_with_g2p(
+                &speaker.service_id,
+                &speaker.style_id,
+                speaker.g2p.as_deref(),
+                &content,
+            )
             .await
         {
             Err(e) => {
@@ -227,7 +232,12 @@ impl EventHandler for Bot {
         // Synthesize the announcement
         let Ok(wav) = self
             .tts_services
-            .tts(&speaker.service_id, &speaker.style_id, &message_text)
+            .tts_with_g2p(
+                &speaker.service_id,
+                &speaker.style_id,
+                speaker.g2p.as_deref(),
+                &message_text,
+            )
             .await
         else {
             return;
@@ -266,7 +276,7 @@ async fn main() {
         .unwrap();
 
     let tts_services = TtsServices::new();
-    tts_services.initialize_by_config(&tts_config.tts_services).await.unwrap();
+    tts_services.initialize(&tts_config).await.unwrap();
 
     let intents = GatewayIntents::GUILDS
         | GatewayIntents::GUILD_VOICE_STATES
