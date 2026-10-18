@@ -133,12 +133,15 @@ pub async fn create_modal(
     let g2p_matches = tts_services
         .g2p_choices(&voice_setting.service_id, &voice_setting.style_id)
         .await;
+
     // 保存された選択が使えない場合は、そのスタイルで使える最初の G2P をデフォルトにする。
-    let active_g2p = voice_setting
-        .g2p
-        .as_deref()
-        .filter(|id| g2p_matches.iter().any(|(engine_id, _)| engine_id == id))
-        .or_else(|| g2p_matches.first().map(|(engine_id, _)| engine_id.as_str()));
+    let active_g2p = match voice_setting.g2p {
+        Some(ref id) if g2p_matches.iter().any(|(engine_id, _)| engine_id == id) => {
+            Some(id.as_ref())
+        }
+        Some(_) => g2p_matches.first().map(|(engine_id, _)| engine_id.as_str()),
+        None => None,
+    };
 
     let mut pages = vec![];
 
@@ -149,7 +152,9 @@ pub async fn create_modal(
     for (service, characters) in &styles {
         if characters.len() <= PAGE_SIZE {
             let first_style_id = &characters.first().unwrap().styles.first().unwrap().id;
-            let transition_target_id = format!("{service}_!DISCORDTTS!_{first_style_id}");
+            let g2p = tts_services.g2p_choices(service, first_style_id).await;
+            let g2p = g2p.first().map(|(id, _)| id.as_ref());
+            let transition_target_id = encode(service, first_style_id, g2p);
 
             pages.push((service.clone(), transition_target_id.clone()));
 
@@ -166,7 +171,9 @@ pub async fn create_modal(
             let page_index = page_index + 1;
 
             let first_style_id = &page_characters.first().unwrap().styles.first().unwrap().id;
-            let transition_target_id = format!("{service}_!DISCORDTTS!_{first_style_id}");
+            let g2p = tts_services.g2p_choices(service, first_style_id).await;
+            let g2p = g2p.first().map(|(id, _)| id.as_ref());
+            let transition_target_id = encode(service, first_style_id, g2p);
 
             pages.push((
                 format!("{service} ({page_index}/{page_count})"),
@@ -192,8 +199,12 @@ pub async fn create_modal(
 
     for character in current_character_items {
         let first_style_id = &character.styles.first().unwrap().id;
-        let transition_target_id =
-            format!("{}_!DISCORDTTS!_{first_style_id}", voice_setting.service_id);
+
+        let g2p = tts_services
+            .g2p_choices(&voice_setting.service_id, first_style_id)
+            .await;
+        let g2p = g2p.first().map(|(id, _)| id.as_ref());
+        let transition_target_id = encode(&voice_setting.service_id, first_style_id, g2p);
 
         characters.push((character.name.clone(), transition_target_id.clone()));
 
@@ -208,12 +219,22 @@ pub async fn create_modal(
     }
 
     let mut styles = vec![];
+    let mut current_style_id = String::new();
 
     for style in current_style_items {
         let style_id = &style.id;
-        let transition_target_id = encode(&voice_setting.service_id, style_id, active_g2p);
+
+        let g2p = tts_services
+            .g2p_choices(&voice_setting.service_id, style_id)
+            .await;
+        let g2p = g2p.first().map(|(id, _)| id.as_ref());
+        let transition_target_id = encode(&voice_setting.service_id, style_id, g2p);
 
         styles.push((style.name.clone(), transition_target_id.clone()));
+
+        if voice_setting.style_id == *style_id {
+            current_style_id = transition_target_id;
+        }
     }
 
     let core = CreateInteractionResponseMessage::new()
@@ -265,7 +286,7 @@ pub async fn create_modal(
     let style_options: Vec<_> = styles
         .into_iter()
         .map(|(display, transition_to)| {
-            let is_default = apply_target_id == transition_to;
+            let is_default = current_style_id == transition_to;
             CreateSelectMenuOption::new(display, transition_to).default_selection(is_default)
         })
         .collect();
@@ -282,6 +303,7 @@ pub async fn create_modal(
             )
             .default_selection(active_g2p.is_none()),
         ];
+
         for (id, friendly_name) in &g2p_matches {
             options.push(
                 CreateSelectMenuOption::new(
