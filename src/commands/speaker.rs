@@ -43,6 +43,25 @@ fn encode(service: &str, style: &str, g2p: Option<&str>) -> String {
     }
 }
 
+/// 遷移先のスタイルで現在の G2P 選択が使えるならその選択を引き継ぎ、
+/// 使えなければ G2P なしで遷移させる（最初の G2P への強制はしない）。
+async fn inherited_g2p<'a>(
+    tts_services: &TtsServices,
+    service: &str,
+    style_id: &str,
+    active: Option<&'a str>,
+) -> Option<&'a str> {
+    let Some(id) = active else {
+        return None;
+    };
+
+    let usable = tts_services.g2p_choices(service, style_id).await;
+    usable
+        .iter()
+        .any(|(engine_id, _)| engine_id == id)
+        .then_some(id)
+}
+
 fn parse_tts_style(s: &str) -> TtsStyle {
     let (head, g2p) = match s.split_once("_!G2P!_") {
         Some((head, g2p)) => (head, Some(g2p.to_string())),
@@ -152,8 +171,7 @@ pub async fn create_modal(
     for (service, characters) in &styles {
         if characters.len() <= PAGE_SIZE {
             let first_style_id = &characters.first().unwrap().styles.first().unwrap().id;
-            let g2p = tts_services.g2p_choices(service, first_style_id).await;
-            let g2p = g2p.first().map(|(id, _)| id.as_ref());
+            let g2p = inherited_g2p(tts_services, service, first_style_id, active_g2p).await;
             let transition_target_id = encode(service, first_style_id, g2p);
 
             pages.push((service.clone(), transition_target_id.clone()));
@@ -171,8 +189,7 @@ pub async fn create_modal(
             let page_index = page_index + 1;
 
             let first_style_id = &page_characters.first().unwrap().styles.first().unwrap().id;
-            let g2p = tts_services.g2p_choices(service, first_style_id).await;
-            let g2p = g2p.first().map(|(id, _)| id.as_ref());
+            let g2p = inherited_g2p(tts_services, service, first_style_id, active_g2p).await;
             let transition_target_id = encode(service, first_style_id, g2p);
 
             pages.push((
@@ -200,10 +217,13 @@ pub async fn create_modal(
     for character in current_character_items {
         let first_style_id = &character.styles.first().unwrap().id;
 
-        let g2p = tts_services
-            .g2p_choices(&voice_setting.service_id, first_style_id)
-            .await;
-        let g2p = g2p.first().map(|(id, _)| id.as_ref());
+        let g2p = inherited_g2p(
+            tts_services,
+            &voice_setting.service_id,
+            first_style_id,
+            active_g2p,
+        )
+        .await;
         let transition_target_id = encode(&voice_setting.service_id, first_style_id, g2p);
 
         characters.push((character.name.clone(), transition_target_id.clone()));
@@ -224,10 +244,13 @@ pub async fn create_modal(
     for style in current_style_items {
         let style_id = &style.id;
 
-        let g2p = tts_services
-            .g2p_choices(&voice_setting.service_id, style_id)
-            .await;
-        let g2p = g2p.first().map(|(id, _)| id.as_ref());
+        let g2p = inherited_g2p(
+            tts_services,
+            &voice_setting.service_id,
+            style_id,
+            active_g2p,
+        )
+        .await;
         let transition_target_id = encode(&voice_setting.service_id, style_id, g2p);
 
         styles.push((style.name.clone(), transition_target_id.clone()));
@@ -359,4 +382,136 @@ pub async fn create_modal(
         CreateButton::new(format!("apply_{apply_target_id}")).label("Apply"),
     ]));
     core.components(rows)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use async_trait::async_trait;
+    use indexmap::IndexMap;
+    use tts_bot_core::g2p::{Setting as G2pSetting, Target as G2pTarget};
+    use tts_bot_core::model::{TtsConfig, TtsStyle};
+    use tts_bot_core::tts::{CharacterView, StyleView, TtsService, TtsServices};
+
+    use super::{encode, inherited_g2p, parse_tts_style};
+
+    #[derive(Debug)]
+    struct MockService;
+
+    #[async_trait]
+    impl TtsService for MockService {
+        async fn tts(&self, _style_id: &str, _text: &str) -> anyhow::Result<Vec<u8>> {
+            unimplemented!()
+        }
+
+        async fn styles(&self) -> anyhow::Result<Vec<CharacterView>> {
+            Ok(vec![CharacterView {
+                name: "Default".to_string(),
+                policy: String::new(),
+                styles: vec![StyleView {
+                    icon: vec![],
+                    name: "Default".to_string(),
+                    id: "Default".to_string(),
+                }],
+            }])
+        }
+    }
+
+    fn g2p_engine(targets: Vec<G2pTarget>) -> G2pSetting {
+        G2pSetting {
+            url: "https://example.test".parse().unwrap(),
+            friendly_name: "G2P".to_string(),
+            headers: HashMap::new(),
+            targets,
+            style: None,
+        }
+    }
+
+    fn target(service: &str, speaker: &str, style: &str) -> G2pTarget {
+        G2pTarget {
+            service: Some(service.to_string()),
+            speaker: Some(speaker.to_string()),
+            style: Some(style.to_string()),
+        }
+    }
+
+    async fn services() -> TtsServices {
+        let services = TtsServices::new();
+        services
+            .register("chongbong", Box::new(MockService))
+            .await
+            .unwrap();
+
+        let mut g2p_engines = IndexMap::new();
+        g2p_engines.insert(
+            "engine-a".to_string(),
+            g2p_engine(vec![target("chongbong", "Default", "Default")]),
+        );
+        g2p_engines.insert(
+            "engine-b".to_string(),
+            g2p_engine(vec![target("voicevox", "Zundamon", "1")]),
+        );
+
+        let config = TtsConfig {
+            default_style: TtsStyle {
+                service_id: "chongbong".to_string(),
+                style_id: "Default".to_string(),
+                g2p: None,
+            },
+            tts_services: IndexMap::new(),
+            g2p_engines,
+            timestretch: None,
+        };
+        services.initialize(&config).await.unwrap();
+        services
+    }
+
+    #[tokio::test]
+    async fn inherited_g2p_keeps_none_and_usable_selection() {
+        let services = services().await;
+
+        // 未選択は引き継がない（G2P なしで遷移する）。
+        assert!(
+            inherited_g2p(&services, "chongbong", "Default", None)
+                .await
+                .is_none()
+        );
+
+        // 遷移先で使える選択は引き継ぐ。
+        assert_eq!(
+            inherited_g2p(&services, "chongbong", "Default", Some("engine-a")).await,
+            Some("engine-a")
+        );
+
+        // 遷移先で使えない選択は G2P なしになる（最初の G2P へは戻さない）。
+        assert!(
+            inherited_g2p(&services, "chongbong", "Default", Some("engine-b"))
+                .await
+                .is_none()
+        );
+
+        // どのエンジンも使えないスタイルでは G2P なしになる。
+        assert!(
+            inherited_g2p(&services, "chongbong", "G2P", Some("engine-a"))
+                .await
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn encode_round_trips_with_and_without_g2p() {
+        let with_g2p = encode("svc", "style", Some("engine-a"));
+        assert_eq!(with_g2p, "svc_!DISCORDTTS!_style_!G2P!_engine-a");
+        let parsed = parse_tts_style(&with_g2p);
+        assert_eq!(parsed.service_id, "svc");
+        assert_eq!(parsed.style_id, "style");
+        assert_eq!(parsed.g2p.as_deref(), Some("engine-a"));
+
+        let without_g2p = encode("svc", "style", None);
+        let parsed = parse_tts_style(&without_g2p);
+        assert_eq!(parsed.service_id, "svc");
+        assert_eq!(parsed.style_id, "style");
+        assert!(parsed.g2p.is_none());
+    }
 }

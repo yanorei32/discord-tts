@@ -42,6 +42,10 @@ clap = { version = "4.5.48", features = ["derive", "env"] }
 tts-bot-core = { git = "https://github.com/yanorei32/tts-bot-core", rev = "8de5e56eff7d118f4350d2c397e94afd8cc1bceb" }
 # tts-bot-core = { path = "../tts-bot-core" }
 
+[dev-dependencies]
+async-trait = "0.1"
+indexmap = "2"
+
 [profile.release]
 strip = true
 opt-level = 3
