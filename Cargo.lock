@@ -4457,7 +4457,7 @@ checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 [[package]]
 name = "tts-bot-core"
 version = "0.0.0"
-source = "git+https://github.com/yanorei32/tts-bot-core?rev=8de5e56eff7d118f4350d2c397e94afd8cc1bceb#8de5e56eff7d118f4350d2c397e94afd8cc1bceb"
+source = "git+https://github.com/yanorei32/tts-bot-core?rev=20522a17726a0df08e50c2738def052a41b522a0#20522a17726a0df08e50c2738def052a41b522a0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4878,7 +4878,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.48.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
